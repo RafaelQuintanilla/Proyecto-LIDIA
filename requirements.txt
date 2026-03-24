@@ -1,0 +1,33 @@
+# SINIA-UY — Dependencias Python
+# Instalar con: pip install -r requirements.txt
+
+# ETL y procesamiento de datos
+pandas>=2.0.0
+numpy>=1.24.0
+pyarrow>=14.0.0          # lectura/escritura Parquet
+requests>=2.31.0         # llamadas a APIs REST
+python-dotenv>=1.0.0     # carga de variables de entorno
+
+# Base de datos relacional
+psycopg2-binary>=2.9.9   # driver PostgreSQL (binary = sin compilar)
+
+# Base de datos NoSQL
+pymongo>=4.6.0            # driver MongoDB
+
+# Scheduler
+APScheduler>=3.10.0
+
+# Dashboard
+streamlit>=1.35.0
+plotly>=5.20.0
+plotly-express>=0.4.1
+
+# Machine Learning y analítica
+scikit-learn>=1.4.0       # clustering, clasificación, anomalías
+scipy>=1.12.0             # estadística
+
+# Testing
+pytest>=8.0.0
+
+# Utilidades
+sqlalchemy>=2.0.0         # ORM opcional para futuras extensiones

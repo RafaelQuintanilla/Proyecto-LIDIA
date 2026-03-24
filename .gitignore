@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+config/secrets.yml
+config/credentials.json
+
+# Datos (pueden ser grandes o generados)
+data/raw/
+data/processed/
+data/*.json
+backups/
+
+# Claude Code settings locales
+.claude/
+
+# Logs
+logs/
+*.log
+
+# Docker volumes locales
+docker/volumes/
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Archivos temporales
+*.tmp
+*.bak
