@@ -55,6 +55,47 @@ COLORES_RIESGO = {
 UMBRAL_ALERTA_RIESGO = 0.65
 UMBRAL_FOCOS_ALERTA  = 10
 
+MAPA_FOCOS = {
+    None: {"lat": -20.0, "lon": -58.0, "zoom": 3.0},
+    "BRA": {"lat": -14.0, "lon": -52.0, "zoom": 3.2},
+    "ARG": {"lat": -38.0, "lon": -64.0, "zoom": 3.5},
+    "URY": {"lat": -32.7, "lon": -56.0, "zoom": 6.2},
+}
+
+
+def _render_mapa_focos(df: pd.DataFrame, pais: str | None, color_por_confianza: bool, height: int = 460):
+    """Mapa reutilizable para focos historicos y NRT."""
+    df_map = df.dropna(subset=["latitud", "longitud"]) if not df.empty else df
+    if df_map.empty:
+        return None
+    centro = MAPA_FOCOS.get(pais, MAPA_FOCOS[None])
+    columna_color = "confianza_num" if color_por_confianza and "confianza_num" in df_map.columns else "potencia_radiativa"
+    fig = px.scatter_mapbox(
+        df_map,
+        lat="latitud",
+        lon="longitud",
+        color=columna_color if columna_color in df_map.columns else None,
+        size="potencia_radiativa" if "potencia_radiativa" in df_map.columns else None,
+        size_max=18,
+        color_continuous_scale=["yellow", "orange", "red"],
+        hover_data={
+            "latitud": ":.4f",
+            "longitud": ":.4f",
+            "fecha_adq": True,
+            "potencia_radiativa": ":.2f",
+            "pais": True,
+        },
+        mapbox_style="carto-positron",
+        center={"lat": centro["lat"], "lon": centro["lon"]},
+        zoom=centro["zoom"],
+        height=height,
+    )
+    fig.update_layout(
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        coloraxis_colorbar_title="Confianza" if columna_color == "confianza_num" else "FRP",
+    )
+    return fig
+
 # ── Sidebar — filtros (se definen ANTES de cargar datos) ─────────────────────
 st.sidebar.title("SINIA-UY")
 st.sidebar.caption("Sistema de Monitoreo de Incendios Forestales · UY / BRA / ARG")
@@ -316,31 +357,35 @@ if pagina == "Resumen General":
 
     with col_mapa:
         st.subheader("Distribución geográfica de focos")
-        st.caption(
-            "Cada punto en el mapa es un foco detectado por satélite. "
-            "El tamaño indica la intensidad (FRP) y el color el nivel de confianza. "
-            "Los focos se concentran principalmente en Brasil y en corredores del norte argentino durante la estación seca."
+        modo_mapa_resumen = st.radio(
+            "Vista del mapa",
+            ["Actuales (NRT últimas 24h)", "Período seleccionado"],
+            horizontal=True,
+            key="modo_mapa_resumen",
         )
-        if not firms.empty and "latitud" in firms.columns:
-            df_map = firms.dropna(subset=["latitud", "longitud"])
-            fig_map = px.scatter_mapbox(
-                df_map, lat="latitud", lon="longitud",
-                color="confianza_num" if "confianza_num" in df_map.columns else "potencia_radiativa",
-                size="potencia_radiativa", size_max=18,
-                color_continuous_scale=["yellow", "orange", "red"],
-                hover_data={"latitud": ":.4f", "longitud": ":.4f",
-                             "fecha_adq": True, "potencia_radiativa": ":.2f"},
-                mapbox_style="carto-positron",
-                center={"lat": -20.0, "lon": -58.0},
-                zoom=3.0, height=460,
+        if modo_mapa_resumen.startswith("Actuales"):
+            datos_mapa = nrt
+            color_por_confianza = False
+            st.caption(
+                f"Focos recientes NRT de las últimas 24 horas en {alcance_nrt_label}. "
+                "Respeta el país seleccionado en el sidebar."
             )
-            fig_map.update_layout(
-                margin={"r": 0, "t": 0, "l": 0, "b": 0},
-                coloraxis_colorbar_title="Confianza",
-            )
-            st.plotly_chart(fig_map, use_container_width=True)
         else:
-            st.info("Sin datos de focos para el período seleccionado.")
+            datos_mapa = firms
+            color_por_confianza = True
+            st.caption(
+                f"Focos del período {periodo_label} en {alcance_nrt_label}. "
+                "El mapa usa una muestra máxima de 100.000 puntos para mantener la navegación ágil."
+            )
+
+        if not datos_mapa.empty and "latitud" in datos_mapa.columns:
+            fig_map = _render_mapa_focos(datos_mapa, pais_sel, color_por_confianza, height=460)
+            if fig_map is not None:
+                st.plotly_chart(fig_map, use_container_width=True)
+            else:
+                st.info("Sin coordenadas disponibles para la vista seleccionada.")
+        else:
+            st.info("Sin datos de focos para la vista seleccionada.")
 
     with col_graf:
         st.subheader("Focos por semana")
@@ -445,6 +490,37 @@ elif pagina == "Focos de Calor":
             "Totales, FRP y evolución temporal usan agregaciones reales de PostgreSQL. "
             "Mapa, tabla y gráficos de detalle usan una muestra máxima de 100.000 focos para mantener el dashboard ágil."
         )
+
+        st.subheader("Mapa de focos")
+        modo_mapa_focos = st.radio(
+            "Vista del mapa",
+            ["Actuales (NRT últimas 24h)", "Período seleccionado"],
+            horizontal=True,
+            key="modo_mapa_focos",
+        )
+        if modo_mapa_focos.startswith("Actuales"):
+            datos_mapa = nrt
+            color_por_confianza = False
+            st.caption(
+                f"Focos recientes NRT de las últimas 24 horas en {alcance_nrt_label}. "
+                "Cambia el país en el sidebar para ver Brasil, Argentina, Uruguay o todo el alcance."
+            )
+        else:
+            datos_mapa = firms
+            color_por_confianza = True
+            st.caption(
+                f"Focos del período {periodo_label} en {alcance_nrt_label}. "
+                "Para el período completo se visualiza una muestra de hasta 100.000 focos, priorizada por intensidad FRP."
+            )
+
+        if not datos_mapa.empty and "latitud" in datos_mapa.columns:
+            fig_map_focos = _render_mapa_focos(datos_mapa, pais_sel, color_por_confianza, height=430)
+            if fig_map_focos is not None:
+                st.plotly_chart(fig_map_focos, use_container_width=True)
+            else:
+                st.info("Sin coordenadas disponibles para la vista seleccionada.")
+        else:
+            st.info("Sin focos disponibles para la vista seleccionada.")
 
         st.subheader("Evolución diaria de focos detectados")
         st.caption(
@@ -933,17 +1009,12 @@ elif pagina == "Tiempo Real":
     if nrt.empty:
         st.info("Sin focos NRT disponibles. El scheduler los actualiza cada 3 horas.")
     else:
-        df_nrt = nrt.dropna(subset=["latitud", "longitud"])
-        fig_nrt = px.scatter_mapbox(
-            df_nrt, lat="latitud", lon="longitud",
-            color="potencia_radiativa" if "potencia_radiativa" in df_nrt.columns else None,
-            size="potencia_radiativa" if "potencia_radiativa" in df_nrt.columns else None,
-            size_max=20, color_continuous_scale=["yellow", "orange", "red"],
-            mapbox_style="carto-positron",
-            center={"lat": -32.5, "lon": -56.0}, zoom=5.5, height=400,
-        )
-        fig_nrt.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
-        st.plotly_chart(fig_nrt, use_container_width=True)
+        st.caption(f"Vista NRT filtrada por el país seleccionado: {alcance_nrt_label}.")
+        fig_nrt = _render_mapa_focos(nrt, pais_sel, color_por_confianza=False, height=400)
+        if fig_nrt is not None:
+            st.plotly_chart(fig_nrt, use_container_width=True)
+        else:
+            st.info("Sin coordenadas NRT disponibles para el país seleccionado.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
