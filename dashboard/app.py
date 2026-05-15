@@ -105,6 +105,7 @@ PAISES_DISP = {
 }
 pais_sel_label = st.sidebar.selectbox("País", list(PAISES_DISP.keys()))
 pais_sel = PAISES_DISP[pais_sel_label]
+alcance_nrt_label = "ARG/BRA/URY" if pais_sel is None else pais_sel
 
 # ── Carga de datos (con filtros ya seleccionados) ─────────────────────────────
 firms  = cargar_focos(fecha_inicio_sel, fecha_fin_sel, pais_sel)
@@ -137,6 +138,8 @@ if pagina != "Tiempo Real":
 
 # Aplicar filtro de país a meteo/forecast/cams (focos ya vienen filtrados de PG)
 if pais_sel:
+    if not nrt.empty and "pais" in nrt.columns:
+        nrt = nrt[nrt["pais"] == pais_sel]
     if not meteo.empty and "pais" in meteo.columns:
         meteo = meteo[meteo["pais"] == pais_sel]
     if not fc.empty and "pais" in fc.columns:
@@ -262,7 +265,7 @@ if pagina == "Resumen General":
     if not nrt.empty:
         focos_hoy = nrt[nrt["fecha_adq"].dt.date == datetime.now().date()] if "fecha_adq" in nrt.columns else nrt
         if len(focos_hoy) >= UMBRAL_FOCOS_ALERTA:
-            alertas.append(f"{len(focos_hoy)} focos detectados HOY por satélite NRT")
+            alertas.append(f"{len(focos_hoy)} focos detectados HOY por satélite NRT en {alcance_nrt_label}")
 
     for alerta in alertas:
         st.error(f"ALERTA: {alerta}", icon="🚨")
@@ -848,7 +851,7 @@ elif pagina == "Tiempo Real":
     if not nrt.empty and "fecha_adq" in nrt.columns:
         focos_hoy = nrt[nrt["fecha_adq"].dt.date == datetime.now().date()]
         if len(focos_hoy) >= UMBRAL_FOCOS_ALERTA:
-            alertas.append(f"{len(focos_hoy)} focos detectados HOY por satélite NRT")
+            alertas.append(f"{len(focos_hoy)} focos detectados HOY por satélite NRT en {alcance_nrt_label}")
 
     if alertas:
         for a in alertas:
