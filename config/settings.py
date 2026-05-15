@@ -1,5 +1,5 @@
-1# =============================================================================
-# SINIA-SA — Configuración Central del Proyecto (Sudamérica)
+# =============================================================================
+# SINIA-UY — Configuración Central del Proyecto
 # =============================================================================
 # Este archivo es el corazón de la configuración. Define TODAS las constantes,
 # URLs, credenciales y parámetros que usan el resto de los módulos.
@@ -96,56 +96,52 @@ OPENMETEO_ARCHIVE_URL = os.getenv(
 )
 
 # -----------------------------------------------------------------------------
-# ALCANCE GEOGRÁFICO — SUDAMÉRICA
-# 6 países núcleo con mayor actividad de incendios forestales (2018-2025).
+# ALCANCE GEOGRÁFICO — URUGUAY, BRASIL Y ARGENTINA
+# 3 países: Uruguay (sede del proyecto) más Brasil y Argentina como países
+# limítrofes con mayor influencia sobre incendios en territorio uruguayo.
+# Justificación: los focos del sur de Brasil (RS, frontera) y del norte
+# argentino (Misiones, Salta) producen humo transfronterizo que afecta
+# directamente la calidad del aire en Uruguay.
+# Por compatibilidad mantenemos el nombre PAISES_SA aunque el alcance operativo
+# actual sea de tres países.
 # Formato PAISES_SA: código ISO 3166-1 alpha-3 → metadatos del país.
 # -----------------------------------------------------------------------------
 
 PAISES_SA = {
     "BRA": {"nombre": "Brasil",    "codigo_iso2": "BR"},
-    "BOL": {"nombre": "Bolivia",   "codigo_iso2": "BO"},
-    "PRY": {"nombre": "Paraguay",  "codigo_iso2": "PY"},
     "ARG": {"nombre": "Argentina", "codigo_iso2": "AR"},
-    "CHL": {"nombre": "Chile",     "codigo_iso2": "CL"},
-    "PER": {"nombre": "Perú",      "codigo_iso2": "PE"},
+    "URY": {"nombre": "Uruguay",   "codigo_iso2": "UY"},
 }
 
-# Bounding box de Sudamérica para FIRMS y filtros espaciales
+# Bounding box regional para FIRMS y filtros espaciales.
+# Se mantiene amplio por compatibilidad con la extracción; el filtro definitivo
+# a BRA/ARG/URY ocurre en la transformación.
 # Formato: "lon_min,lat_min,lon_max,lat_max"
-SA_BBOX = "-82.0,-56.0,-34.0,13.0"
+SA_BBOX = "-74.0,-56.0,-34.0,6.0"
 
-# Puntos de monitoreo meteorológico — 18 ciudades en 6 países núcleo.
+# Puntos de monitoreo meteorológico — 11 ciudades en 3 países (UY + BRA + ARG).
 # Formato: "Nombre": {"lat": float, "lon": float, "pais": str (ISO 3166-1 alpha-3)}
 # Se usa para extraer datos de Open-Meteo y CAMS por coordenada.
 PUNTOS_METEO_SA = {
-    # ── Brasil (5 puntos — mayor superficie de riesgo del continente) ──
+    # ── Brasil (5 puntos — mayor superficie de riesgo de la región y fuente
+    #    principal de humo transfronterizo hacia Uruguay) ──
     "Cuiabá":        {"lat": -15.60, "lon": -56.10, "pais": "BRA"},  # Capital de Mato Grosso, corazón del Cerrado
     "Porto_Alegre":  {"lat": -30.03, "lon": -51.23, "pais": "BRA"},  # Sur, frontera con AR/UY
     "Manaus":        {"lat":  -3.10, "lon": -60.02, "pais": "BRA"},  # Amazonia occidental
     "Campo_Grande":  {"lat": -20.47, "lon": -54.62, "pais": "BRA"},  # Mato Grosso do Sul, Pantanal
     "Brasília":      {"lat": -15.78, "lon": -47.93, "pais": "BRA"},  # Centro-oeste, Cerrado
-    # ── Bolivia (3 puntos — Chiquitanía y amazonia boliviana) ──
-    "Santa_Cruz":    {"lat": -17.80, "lon": -63.17, "pais": "BOL"},  # Chiquitanía — zona crítica de incendios
-    "Trinidad":      {"lat": -14.83, "lon": -64.90, "pais": "BOL"},  # Beni — amazonia boliviana
-    "La_Paz":        {"lat": -16.50, "lon": -68.15, "pais": "BOL"},  # Capital administrativa
-    # ── Paraguay (2 puntos — Chaco y bosque atlántico) ──
-    "Asunción":      {"lat": -25.29, "lon": -57.64, "pais": "PRY"},  # Capital, corredor de incendios
-    "Concepción":    {"lat": -23.41, "lon": -57.43, "pais": "PRY"},  # Norte, Chaco paraguayo
-    # ── Argentina (4 puntos — norte y centro) ──
+    # ── Argentina (4 puntos — norte y centro, frontera con Uruguay) ──
     "Salta":         {"lat": -24.79, "lon": -65.41, "pais": "ARG"},  # NOA, yungas y chaco salteño
-    "Posadas":       {"lat": -27.37, "lon": -55.90, "pais": "ARG"},  # Misiones, selva misionera
-    "Buenos_Aires":  {"lat": -34.61, "lon": -58.37, "pais": "ARG"},  # Referencia sur
+    "Posadas":       {"lat": -27.37, "lon": -55.90, "pais": "ARG"},  # Misiones, selva misionera limítrofe
+    "Buenos_Aires":  {"lat": -34.61, "lon": -58.37, "pais": "ARG"},  # AMBA, frontera oeste con UY
     "Mendoza":       {"lat": -32.89, "lon": -68.85, "pais": "ARG"},  # Cuyo, incendios de interfaz
-    # ── Chile (2 puntos — zona de interfaz urbano-forestal) ──
-    "Santiago":      {"lat": -33.46, "lon": -70.65, "pais": "CHL"},  # Región Metropolitana
-    "Temuco":        {"lat": -38.74, "lon": -72.59, "pais": "CHL"},  # La Araucanía — zona forestal crítica
-    # ── Perú (2 puntos — amazonia y altiplano) ──
-    "Lima":          {"lat": -12.06, "lon": -77.04, "pais": "PER"},  # Capital costera
-    "Cusco":         {"lat": -13.53, "lon": -71.97, "pais": "PER"},  # Sur andino, colindante con amazonia
+    # ── Uruguay (2 puntos — sede del proyecto y capital) ──
+    "Rivera":        {"lat": -30.91, "lon": -55.55, "pais": "URY"},  # Sede UTEC, frontera con Brasil
+    "Montevideo":    {"lat": -34.90, "lon": -56.19, "pais": "URY"},  # Capital, referencia sur del país
 }
 
-# Alias de compatibilidad: código existente que itere PUNTOS_METEO como {nombre: (lat, lon)}
-# sigue funcionando sin modificación durante la migración incremental.
+# Alias de compatibilidad: código existente que itere PUNTOS_METEO como
+# {nombre: (lat, lon)} sigue funcionando sin modificación.
 PUNTOS_METEO = {
     nombre: (info["lat"], info["lon"])
     for nombre, info in PUNTOS_METEO_SA.items()
@@ -206,8 +202,9 @@ MONGO_CONFIG = {
 # CONFIGURACIÓN GENERAL
 # -----------------------------------------------------------------------------
 
-# Zona horaria del proyecto — UTC es neutro para un sistema multi-país en Sudamérica.
-# Los 6 países núcleo cubren UTC-3 a UTC-5, así que usamos UTC como referencia.
+# Zona horaria del proyecto — UTC es neutro para un sistema regional de tres países.
+# Uruguay, Brasil y Argentina operan muy cerca de UTC-3, pero se mantiene UTC
+# como referencia técnica común.
 TIMEZONE  = os.getenv("TIMEZONE",  "UTC")
 
 # Nivel de detalle de los logs: DEBUG muestra todo, INFO solo lo importante,

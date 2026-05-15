@@ -1,8 +1,8 @@
-# SINIA-UY — Sistema de Monitoreo de Incendios Forestales Uruguay
+# SINIA-UY — Sistema de Monitoreo de Incendios Forestales
 
 **UTEC | Ingeniería de Datos e Inteligencia Artificial | Proyecto de Ingeniería de Datos | 2026**
 
-Sistema de monitoreo ambiental que integra fuentes de datos satelitales y meteorológicas para detectar, analizar y predecir riesgo de incendios forestales en Uruguay.
+Sistema de monitoreo ambiental que integra fuentes de datos satelitales y meteorológicas para detectar, analizar y predecir riesgo de incendios forestales en Uruguay, Brasil y Argentina.
 
 ---
 

@@ -25,7 +25,11 @@ import streamlit as st
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from config.settings import PG_CONFIG, DIR_PROCESADO
+from config.settings import PG_CONFIG, DIR_PROCESADO, PAISES_SA, PUNTOS_METEO_SA
+
+PAISES_ALCANCE = tuple(sorted(PAISES_SA.keys()))
+PUNTOS_ALCANCE = tuple(PUNTOS_METEO_SA.keys())
+SQL_SCOPE_PAISES = ", ".join(f"'{pais}'" for pais in PAISES_ALCANCE)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONEXIÓN
@@ -53,6 +57,16 @@ def _query_pg(sql: str, params: tuple = ()) -> pd.DataFrame:
         conn.close()
 
 
+def _filtrar_fechas(df: pd.DataFrame, fecha_inicio: str | None, fecha_fin: str | None, columna: str) -> pd.DataFrame:
+    if df.empty or columna not in df.columns:
+        return df
+    if fecha_inicio:
+        df = df[df[columna] >= pd.to_datetime(fecha_inicio)]
+    if fecha_fin:
+        df = df[df[columna] <= pd.to_datetime(fecha_fin)]
+    return df
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # FOCOS DE CALOR — HISTÓRICO
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,7 +91,6 @@ def cargar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, 
             if pais:
                 where_clauses.append("pais = %s")
                 params.append(pais)
-            where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
             df = _query_pg(f"""
                 SELECT
@@ -92,7 +105,8 @@ def cargar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, 
                     es_diurno,
                     pais
                 FROM focos_calor
-                {where}
+                WHERE pais IN ({SQL_SCOPE_PAISES})
+                {"AND " + " AND ".join(where_clauses) if where_clauses else ""}
                 ORDER BY potencia_radiativa DESC NULLS LAST
                 LIMIT 100000
             """, tuple(params))
@@ -107,6 +121,11 @@ def cargar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, 
     if p.exists():
         df = pd.read_parquet(p)
         df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+        if "pais" in df.columns:
+            df = df[df["pais"].isin(PAISES_ALCANCE)].copy()
+        if pais and "pais" in df.columns:
+            df = df[df["pais"] == pais].copy()
+        df = _filtrar_fechas(df, fecha_inicio, fecha_fin, "fecha_adq")
         df.attrs["fuente"] = "parquet"
         return df
     return pd.DataFrame()
@@ -118,12 +137,38 @@ def cargar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, 
 
 @st.cache_data(ttl=180)
 def cargar_focos_nrt() -> pd.DataFrame:
+    if _pg_disponible():
+        try:
+            df = _query_pg(f"""
+                SELECT
+                    fecha_adq,
+                    latitud,
+                    longitud,
+                    potencia_radiativa,
+                    confianza_raw,
+                    confianza_num,
+                    satelite,
+                    dia_noche,
+                    es_diurno,
+                    pais
+                FROM focos_calor
+                WHERE pais IN ({SQL_SCOPE_PAISES})
+                  AND fecha_adq >= CURRENT_DATE - INTERVAL '1 day'
+                ORDER BY fecha_adq DESC, potencia_radiativa DESC NULLS LAST
+                LIMIT 5000
+            """)
+            df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+            df.attrs["fuente"] = "postgresql"
+            return df
+        except Exception:
+            pass
     """Focos NRT de las últimas 24h. Solo parquet (datos muy recientes)."""
     p = DIR_PROCESADO / "firms_nrt_procesado.parquet"
     if not p.exists():
         return pd.DataFrame()
     df = pd.read_parquet(p)
     df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+    df.attrs["fuente"] = "parquet"
     return df
 
 
@@ -139,9 +184,10 @@ def cargar_meteo(tipo_dato: str = "historico") -> pd.DataFrame:
     """
     if _pg_disponible():
         try:
-            df = _query_pg("""
+            df = _query_pg(f"""
                 SELECT
                     punto,
+                    pais,
                     fecha,
                     tipo_dato,
                     indice_riesgo,
@@ -154,6 +200,7 @@ def cargar_meteo(tipo_dato: str = "historico") -> pd.DataFrame:
                     et0_fao_evapotranspiration
                 FROM v_riesgo_historico
                 WHERE tipo_dato = %s
+                  AND pais IN ({SQL_SCOPE_PAISES})
                 ORDER BY punto, fecha
             """, (tipo_dato,))
             df["fecha"] = pd.to_datetime(df["fecha"])
@@ -168,6 +215,8 @@ def cargar_meteo(tipo_dato: str = "historico") -> pd.DataFrame:
         return pd.DataFrame()
     df = pd.concat(frames, ignore_index=True)
     df["fecha"] = pd.to_datetime(df["fecha"])
+    if "punto" in df.columns:
+        df = df[df["punto"].isin(PUNTOS_ALCANCE)].copy()
     df.attrs["fuente"] = "parquet"
     return df
 
@@ -184,9 +233,10 @@ def cargar_forecast() -> pd.DataFrame:
     """
     if _pg_disponible():
         try:
-            df = _query_pg("""
+            df = _query_pg(f"""
                 SELECT
                     punto,
+                    pais,
                     fecha,
                     indice_riesgo,
                     nivel_riesgo,
@@ -195,6 +245,7 @@ def cargar_forecast() -> pd.DataFrame:
                     wind_speed_10m_max,
                     precipitation_probability_max
                 FROM v_forecast_riesgo
+                WHERE pais IN ({SQL_SCOPE_PAISES})
                 ORDER BY punto, fecha
             """)
             df["fecha"] = pd.to_datetime(df["fecha"])
@@ -208,6 +259,8 @@ def cargar_forecast() -> pd.DataFrame:
         return pd.DataFrame()
     df = pd.read_parquet(p)
     df["fecha"] = pd.to_datetime(df["fecha"])
+    if "punto" in df.columns:
+        df = df[df["punto"].isin(PUNTOS_ALCANCE)].copy()
     df.attrs["fuente"] = "parquet"
     return df
 
@@ -224,9 +277,10 @@ def cargar_cams() -> pd.DataFrame:
     """
     if _pg_disponible():
         try:
-            df = _query_pg("""
+            df = _query_pg(f"""
                 SELECT
                     p.nombre AS punto,
+                    p.pais AS pais,
                     c.fecha,
                     c.pm10_media,
                     c.pm10_max,
@@ -238,6 +292,7 @@ def cargar_cams() -> pd.DataFrame:
                     c.horas_validas
                 FROM calidad_aire_diario c
                 JOIN puntos_monitoreo p ON p.id = c.id_punto
+                WHERE p.pais IN ({SQL_SCOPE_PAISES})
                 ORDER BY c.fecha DESC
             """)
             df["fecha"] = pd.to_datetime(df["fecha"])
@@ -246,11 +301,13 @@ def cargar_cams() -> pd.DataFrame:
         except Exception as e:
             st.sidebar.warning(f"BD no disponible, usando parquet: {e}")
 
-    frames = [pd.read_parquet(f) for f in DIR_PROCESADO.glob("cams_*.parquet")]
+    frames = [pd.read_parquet(f) for f in DIR_PROCESADO.glob("cams_procesado_*.parquet")]
     if not frames:
         return pd.DataFrame()
     df = pd.concat(frames, ignore_index=True)
     df["fecha"] = pd.to_datetime(df["fecha"])
+    if "punto" in df.columns:
+        df = df[df["punto"].isin(PUNTOS_ALCANCE)].copy()
     df.attrs["fuente"] = "parquet"
     return df
 
@@ -267,7 +324,10 @@ def cargar_resumen_puntos() -> pd.DataFrame:
     """
     if _pg_disponible():
         try:
-            return _query_pg("SELECT * FROM v_riesgo_actual ORDER BY indice_riesgo DESC NULLS LAST")
+            return _query_pg(
+                f"SELECT * FROM v_riesgo_actual WHERE pais IN ({SQL_SCOPE_PAISES}) "
+                "ORDER BY indice_riesgo DESC NULLS LAST"
+            )
         except Exception:
             pass
     return pd.DataFrame()
@@ -282,7 +342,20 @@ def cargar_dias_criticos() -> pd.DataFrame:
     """Días históricos con riesgo ALTO o MUY ALTO en al menos un punto."""
     if _pg_disponible():
         try:
-            return _query_pg("SELECT * FROM v_dias_criticos ORDER BY fecha DESC")
+            return _query_pg(f"""
+                SELECT
+                    fecha,
+                    COUNT(DISTINCT punto) AS puntos_en_alerta,
+                    COUNT(DISTINCT pais) AS paises_en_alerta,
+                    MAX(indice_riesgo) AS indice_maximo,
+                    STRING_AGG(DISTINCT pais, ', ' ORDER BY pais) AS paises_afectados,
+                    STRING_AGG(DISTINCT punto, ', ' ORDER BY punto) AS puntos_afectados
+                FROM v_riesgo_historico
+                WHERE pais IN ({SQL_SCOPE_PAISES})
+                  AND nivel_riesgo IN ('alto', 'muy_alto')
+                GROUP BY fecha
+                ORDER BY fecha DESC
+            """)
         except Exception:
             pass
     return pd.DataFrame()
@@ -297,7 +370,9 @@ def cargar_riesgo_por_pais() -> pd.DataFrame:
     """Riesgo mensual agregado por país — usa vista v_riesgo_por_pais."""
     if _pg_disponible():
         try:
-            df = _query_pg("SELECT * FROM v_riesgo_por_pais ORDER BY pais, mes")
+            df = _query_pg(
+                f"SELECT * FROM v_riesgo_por_pais WHERE pais IN ({SQL_SCOPE_PAISES}) ORDER BY pais, mes"
+            )
             df["mes"] = pd.to_datetime(df["mes"])
             df.attrs["fuente"] = "postgresql"
             return df
@@ -311,7 +386,9 @@ def cargar_focos_por_pais_mes() -> pd.DataFrame:
     """Focos de calor mensuales por país — usa vista v_focos_por_pais_mes."""
     if _pg_disponible():
         try:
-            df = _query_pg("SELECT * FROM v_focos_por_pais_mes ORDER BY pais, mes")
+            df = _query_pg(
+                f"SELECT * FROM v_focos_por_pais_mes WHERE pais IN ({SQL_SCOPE_PAISES}) ORDER BY pais, mes"
+            )
             df["mes"] = pd.to_datetime(df["mes"])
             df.attrs["fuente"] = "postgresql"
             return df

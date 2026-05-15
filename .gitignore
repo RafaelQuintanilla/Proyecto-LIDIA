@@ -21,6 +21,7 @@ config/credentials.json
 data/raw/
 data/processed/
 data/*.json
+data/mongo_local/
 backups/
 
 # Claude Code settings locales
@@ -49,3 +50,4 @@ Thumbs.db
 # Archivos temporales
 *.tmp
 *.bak
+~$*.docx

@@ -1,12 +1,12 @@
 -- =============================================================================
--- SINIA-SA — DDL Principal — Modelo Relacional (Sudamérica)
+-- SINIA-UY — DDL Principal — Modelo Relacional Regional
 -- =============================================================================
 -- Diseño orientado a Data Warehouse analítico.
--- Alcance: 6 países núcleo — Brasil, Bolivia, Paraguay, Argentina, Chile, Perú.
+-- Alcance: 3 países — Uruguay, Brasil y Argentina.
 -- Período: 2018–2025.
 --
 -- Tablas:
---   1. puntos_monitoreo      → dimensión geográfica (18 ciudades en 6 países)
+--   1. puntos_monitoreo      → dimensión geográfica (11 ciudades en 3 países)
 --   2. focos_calor           → hechos de detección satelital FIRMS
 --   3. meteo_diario          → hechos meteorológicos + índice de riesgo
 --   4. calidad_aire_diario   → hechos calidad del aire CAMS
@@ -23,12 +23,12 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- =============================================================================
 -- TABLA 1: puntos_monitoreo
--- Dimensión. 18 puntos geográficos de monitoreo en 6 países de Sudamérica.
+-- Dimensión. 11 puntos geográficos de monitoreo en 3 países.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS puntos_monitoreo (
     id           SERIAL       PRIMARY KEY,
     nombre       VARCHAR(50)  NOT NULL UNIQUE,
-    pais         CHAR(3)      NOT NULL,                -- ISO 3166-1 alpha-3: BRA, BOL, PRY, ARG, CHL, PER
+    pais         CHAR(3)      NOT NULL,                -- ISO 3166-1 alpha-3: BRA, ARG, URY
     region       VARCHAR(80),                          -- Descripción de la zona (ej: "Chiquitanía boliviana")
     latitud      NUMERIC(9,6) NOT NULL
                      CHECK (latitud  BETWEEN -90.0 AND 90.0),
@@ -38,11 +38,11 @@ CREATE TABLE IF NOT EXISTS puntos_monitoreo (
     creado_en    TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
-COMMENT ON TABLE  puntos_monitoreo IS '18 puntos geográficos de monitoreo ambiental en 6 países de Sudamérica';
+COMMENT ON TABLE  puntos_monitoreo IS '11 puntos geográficos de monitoreo ambiental en Uruguay, Brasil y Argentina';
 COMMENT ON COLUMN puntos_monitoreo.nombre IS 'Nombre del punto (ciudad)';
 COMMENT ON COLUMN puntos_monitoreo.pais IS 'Código ISO 3166-1 alpha-3 del país';
-COMMENT ON COLUMN puntos_monitoreo.latitud IS 'Latitud decimal WGS84, rango Sudamérica [-56, +13]';
-COMMENT ON COLUMN puntos_monitoreo.longitud IS 'Longitud decimal WGS84, rango Sudamérica [-82, -34]';
+COMMENT ON COLUMN puntos_monitoreo.latitud IS 'Latitud decimal WGS84, rango regional del sistema';
+COMMENT ON COLUMN puntos_monitoreo.longitud IS 'Longitud decimal WGS84, rango regional del sistema';
 
 -- =============================================================================
 -- TABLA 2: focos_calor
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS focos_calor (
     UNIQUE (latitud, longitud, fecha_adq, hora_adq_hhmm, satelite)
 );
 
-COMMENT ON TABLE  focos_calor IS 'Focos de calor detectados por satélite NASA FIRMS VIIRS/MODIS — alcance Sudamérica';
+COMMENT ON TABLE  focos_calor IS 'Focos de calor detectados por satélite NASA FIRMS VIIRS/MODIS en Uruguay, Brasil y Argentina';
 COMMENT ON COLUMN focos_calor.pais IS 'Código ISO 3166-1 alpha-3 asignado por bbox en la transformación';
 COMMENT ON COLUMN focos_calor.potencia_radiativa IS 'Fire Radiative Power en megawatts (MW)';
 COMMENT ON COLUMN focos_calor.confianza_num IS '1=baja, 2=nominal, 3=alta (mapeo de l/n/h)';
@@ -211,25 +211,22 @@ COMMENT ON COLUMN etl_ejecuciones.registros_sin_cambio IS 'Registros detectados 
 
 -- =============================================================================
 -- TABLA 6: paises_referencia
--- Dimensión estática. Metadata de los 6 países núcleo del sistema.
+-- Dimensión estática. Metadata de los 3 países en alcance del sistema.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS paises_referencia (
-    codigo_iso3  CHAR(3)      PRIMARY KEY,              -- ISO 3166-1 alpha-3 (BRA, BOL, etc.)
+    codigo_iso3  CHAR(3)      PRIMARY KEY,              -- ISO 3166-1 alpha-3 (BRA, ARG, URY)
     codigo_iso2  CHAR(2)      NOT NULL UNIQUE,           -- ISO 3166-1 alpha-2 (BR, BO, etc.)
     nombre       VARCHAR(80)  NOT NULL,
     region       VARCHAR(50)  DEFAULT 'Sudamérica',
     activo       BOOLEAN      NOT NULL DEFAULT TRUE
 );
 
-COMMENT ON TABLE paises_referencia IS 'Países núcleo del sistema SINIA-SA con actividad de incendios 2018-2025';
+COMMENT ON TABLE paises_referencia IS 'Países en alcance del sistema SINIA-UY: Uruguay + limítrofes (Brasil, Argentina), período 2018-2025';
 
 INSERT INTO paises_referencia (codigo_iso3, codigo_iso2, nombre) VALUES
+    ('URY', 'UY', 'Uruguay'),
     ('BRA', 'BR', 'Brasil'),
-    ('BOL', 'BO', 'Bolivia'),
-    ('PRY', 'PY', 'Paraguay'),
-    ('ARG', 'AR', 'Argentina'),
-    ('CHL', 'CL', 'Chile'),
-    ('PER', 'PE', 'Perú')
+    ('ARG', 'AR', 'Argentina')
 ON CONFLICT (codigo_iso3) DO NOTHING;
 
 -- =============================================================================

@@ -316,11 +316,22 @@ if __name__ == "__main__":
     import json
 
     print("=" * 60)
-    print("SINIA-UY — Extractor Open-Meteo")
+    print("SINIA-SA — Extractor Meteorológico (Open-Meteo)")
     print("=" * 60)
-    print("\nDescargando datos diarios para Rivera (enero-marzo 2024)...\n")
+    print(f"Fuente      : Open-Meteo Archive API (sin registro, sin key)")
+    print(f"Endpoint    : {OPENMETEO_ARCHIVE_URL}")
+    print(f"Puntos conf : {list(PUNTOS_METEO.keys())}")
+    print(f"Variables   : {VARIABLES_DIARIAS}")
 
-    # Descargamos datos de prueba para Rivera durante el primer trimestre 2024
+    # ── Prueba 1: datos diarios para un punto ───────────────────────────
+    print("\n" + "-" * 60)
+    print("PRUEBA 1 — Datos diarios para Rivera (enero-marzo 2024)")
+    print("-" * 60)
+    print("Punto      : Rivera")
+    print("Período    : 2024-01-01  →  2024-03-31")
+    print("Granular.  : daily")
+    print("Descargando...\n")
+
     df = extraer_meteo_historico(
         punto="Rivera",
         fecha_inicio="2024-01-01",
@@ -329,10 +340,38 @@ if __name__ == "__main__":
     )
 
     if not df.empty:
-        print(f"Registros descargados: {len(df)}")
-        print(f"Columnas: {list(df.columns)}")
+        print(f"[OK] Registros descargados : {len(df)}")
+        print(f"     Columnas              : {list(df.columns)}")
         print(f"\nPrimeras 5 filas:")
         print(df.head().to_string())
         print(f"\nMétricas de calidad:")
         metricas = explorar_muestra_meteo(df)
         print(json.dumps(metricas, indent=2, ensure_ascii=False))
+    else:
+        print("[ERROR] Sin datos — verificar conectividad con Open-Meteo.")
+
+    # ── Prueba 2: resumen de todos los puntos (solo enero 2024) ─────────
+    print("\n" + "-" * 60)
+    print("PRUEBA 2 — Todos los puntos configurados (enero 2024)")
+    print("-" * 60)
+    print("Período    : 2024-01-01  →  2024-01-31")
+    print("Descargando...\n")
+
+    df_todos = extraer_meteo_todos_los_puntos(
+        fecha_inicio="2024-01-01",
+        fecha_fin="2024-01-31",
+        granularidad="daily",
+    )
+
+    if not df_todos.empty:
+        print(f"[OK] Total registros       : {len(df_todos)}")
+        print(f"     Puntos descargados    : {sorted(df_todos['punto'].unique().tolist())}")
+        print(f"     Registros por punto   :")
+        for p, cnt in df_todos.groupby("punto").size().items():
+            print(f"       {p:<20} {cnt} filas")
+    else:
+        print("[ERROR] Sin datos para ningún punto.")
+
+    print("\n" + "=" * 60)
+    print("Extractor Open-Meteo finalizado.")
+    print("=" * 60)

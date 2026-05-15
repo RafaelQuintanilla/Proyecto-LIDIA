@@ -1,5 +1,5 @@
 """
-SINIA-SA — Dashboard de Monitoreo de Incendios Forestales (Sudamérica)
+SINIA-UY — Dashboard de Monitoreo de Incendios Forestales
 Ejecutar con: streamlit run dashboard/app.py
 
 Fuente de datos: PostgreSQL (primario) con fallback a Parquet.
@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 st.set_page_config(
-    page_title="SINIA-SA | Monitor de Incendios Sudamérica",
+    page_title="SINIA-UY | Monitor de Incendios Regional",
     page_icon="🔥",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -52,9 +52,9 @@ UMBRAL_ALERTA_RIESGO = 0.65
 UMBRAL_FOCOS_ALERTA  = 10
 
 # ── Sidebar — filtros (se definen ANTES de cargar datos) ─────────────────────
-st.sidebar.title("SINIA-SA")
-st.sidebar.caption("Sistema de Monitoreo de Incendios Forestales · Sudamérica")
-st.sidebar.caption("6 países · 18 puntos · 2018-2025")
+st.sidebar.title("SINIA-UY")
+st.sidebar.caption("Sistema de Monitoreo de Incendios Forestales · UY / BRA / ARG")
+st.sidebar.caption("3 países · 11 puntos · 2018-2025")
 st.sidebar.caption("UTEC · Ingeniería de Datos · 2026")
 st.sidebar.divider()
 
@@ -87,11 +87,8 @@ fecha_fin_sel    = f"{anio_sel}-12-31"
 PAISES_DISP = {
     "Todos": None,
     "Brasil (BRA)":    "BRA",
-    "Bolivia (BOL)":   "BOL",
-    "Paraguay (PRY)":  "PRY",
     "Argentina (ARG)": "ARG",
-    "Chile (CHL)":     "CHL",
-    "Perú (PER)":      "PER",
+    "Uruguay (URY)":   "URY",
 }
 pais_sel_label = st.sidebar.selectbox("País", list(PAISES_DISP.keys()))
 pais_sel = PAISES_DISP[pais_sel_label]
@@ -164,19 +161,18 @@ if auto_refresh:
 # ════════════════════════════════════════════════════════════════════════════
 if pagina == "Resumen General":
 
-    st.title("SINIA-SA — Sistema de Monitoreo de Incendios Forestales · Sudamérica")
-    st.caption("6 países núcleo · 18 puntos de monitoreo · 2018–2025 · Fuentes: NASA FIRMS · Open-Meteo · CAMS · CHIRPS · MODIS")
+    st.title("SINIA-UY — Sistema de Monitoreo de Incendios Forestales")
+    st.caption("Uruguay, Brasil y Argentina · 11 puntos de monitoreo · 2018–2025 · Fuentes: NASA FIRMS · Open-Meteo · CAMS · CHIRPS · MODIS")
 
     # ── Explicación del sistema ───────────────────────────────────────────────
     st.info(
         "**¿Qué hace este sistema?**  \n"
-        "SINIA-SA integra cinco fuentes de datos satelitales y meteorológicas para responder "
-        "una pregunta central: **¿cuándo, dónde y por qué ocurren incendios forestales en Sudamérica?**  \n\n"
-        "Cubre los 6 países con mayor actividad histórica de incendios (2018-2025): "
-        "**Brasil, Bolivia, Paraguay, Argentina, Chile y Perú** — 18 ciudades de monitoreo. "
-        "Cada fuente aporta una capa de información distinta. Combinadas, permiten detectar incendios activos, "
-        "anticipar condiciones de riesgo, medir impacto en calidad del aire y "
-        "correlacionar con precipitación y tipo de cobertura vegetal."
+        "SINIA-UY integra cinco fuentes de datos satelitales y meteorológicas para responder "
+        "una pregunta central: **¿cuándo, dónde y por qué ocurren incendios forestales en Uruguay, Brasil y Argentina?**  \n\n"
+        "El alcance regional se concentra en **Uruguay como país núcleo**, más **Brasil y Argentina** "
+        "como fuentes principales de humo e incendios transfronterizos. Cada fuente aporta una capa de "
+        "información distinta. Combinadas, permiten detectar incendios activos, anticipar condiciones de "
+        "riesgo, medir impacto en calidad del aire y correlacionar con precipitación y tipo de cobertura vegetal."
     )
 
     # ── Arquitectura: flujo de las 5 fuentes ─────────────────────────────────
@@ -190,13 +186,14 @@ if pagina == "Resumen General":
             **NASA FIRMS**
             🛰️ *Detección satelital de incendios*
 
-            El satélite VIIRS (Suomi NPP) barre Sudamérica
+            El satélite VIIRS (Suomi NPP) monitorea el
+            corredor regional Uruguay-Brasil-Argentina
             varias veces al día detectando puntos con temperatura
             anormalmente alta en la superficie.
 
             **Responde:** ¿Hubo un incendio? ¿Dónde? ¿Qué tan intenso?
 
-            → *18 países cubiertos por bbox SA*
+            → *3 países analizados en el modelo final*
             """
         )
 
@@ -206,7 +203,7 @@ if pagina == "Resumen General":
             **Open-Meteo + CAMS**
             🌡️ *Clima y calidad del aire*
 
-            API meteorológica open-source para los 18 puntos SA.
+            API meteorológica open-source para 11 puntos de monitoreo.
             Temperatura, humedad, viento y sequía calculan el
             **Índice de Riesgo de Incendio**.
 
@@ -279,7 +276,7 @@ if pagina == "Resumen General":
         "Días de riesgo ALTO o MUY ALTO",
         f"{dias_alto}",
         help="Días en que el Índice de Riesgo superó 0.50. "
-             "Se calculó combinando temperatura, humedad, viento y sequía de los 18 puntos SA.",
+             "Se calculó combinando temperatura, humedad, viento y sequía de los 11 puntos del alcance regional.",
     )
     c4.metric(
         "Último nivel de riesgo registrado",
@@ -297,7 +294,7 @@ if pagina == "Resumen General":
         st.caption(
             "Cada punto en el mapa es un foco detectado por satélite. "
             "El tamaño indica la intensidad (FRP) y el color el nivel de confianza. "
-            "Los focos se concentran principalmente en Brasil, Bolivia y Paraguay (agosto–octubre)."
+            "Los focos se concentran principalmente en Brasil y en corredores del norte argentino durante la estación seca."
         )
         if not firms.empty and "latitud" in firms.columns:
             df_map = firms.dropna(subset=["latitud", "longitud"])
@@ -340,7 +337,7 @@ if pagina == "Resumen General":
 
         st.subheader("¿Cuántos días hubo riesgo alto?")
         st.caption(
-            "Distribución del índice de riesgo calculado con datos meteorológicos de los 18 puntos SA."
+            "Distribución del índice de riesgo calculado con datos meteorológicos de los 11 puntos del alcance regional."
         )
         if not meteo.empty and "nivel_riesgo" in meteo.columns:
             dist = meteo["nivel_riesgo"].value_counts().reset_index()
@@ -363,14 +360,15 @@ if pagina == "Resumen General":
             """
             **¿Qué nos dicen estas 3 fuentes combinadas?**
 
-            - La actividad de incendios se concentra en **Brasil (47%), Bolivia (15%) y Paraguay (10%)**,
-              con picos en agosto–octubre (estación seca del hemisferio sur).
-            - **2020 fue el año más crítico**: 3.38M focos, con el peor día histórico el 1° de octubre
-              de 2020 con 56,604 focos detectados — coincide con las grandes quemas del Pantanal.
-            - Los días de **riesgo muy_alto** concentran 2.3× más focos que los días de riesgo moderado,
-              validando el índice meteorológico como predictor de actividad de incendios.
-            - La integración de CAMS permite saber si los incendios **afectaron la calidad del aire**:
-              Santiago superó el límite OMS de PM10 en 285 días; Trinidad alcanzó 704 µg/m³ (15× el límite).
+            - La actividad de incendios se concentra en **Brasil** y en corredores críticos del
+              **noreste y centro de Argentina**, mientras **Uruguay** funciona como país núcleo de análisis
+              y receptor de parte del humo transfronterizo.
+            - Los picos de focos y de riesgo suelen alinearse con los meses más secos y cálidos,
+              especialmente cuando coinciden temperatura alta, humedad baja y viento fuerte.
+            - Los días de **riesgo alto o muy alto** tienden a concentrar más focos que los días moderados,
+              lo que vuelve útil al índice meteorológico como herramienta de alerta temprana.
+            - La integración de CAMS permite verificar si los incendios **impactan la calidad del aire**
+              y cruzar ese efecto con puntos de monitoreo concretos del alcance regional.
 
             Este sistema demuestra el valor de la **ingeniería de datos**: el dato individual no responde
             la pregunta. La respuesta emerge cuando integramos 5 fuentes heterogéneas en una sola vista.
@@ -384,7 +382,7 @@ if pagina == "Resumen General":
 elif pagina == "Focos de Calor":
 
     st.title("Focos de Calor — NASA FIRMS VIIRS")
-    st.caption(f"Satélite: VIIRS Suomi NPP (Standard Processing) · Período: {anio_sel} · 6 países SA")
+    st.caption(f"Satélite: VIIRS Suomi NPP (Standard Processing) · Período: {anio_sel} · Uruguay, Brasil y Argentina")
 
     st.info(
         "**¿Qué es un foco de calor?**  \n"
@@ -499,8 +497,8 @@ elif pagina == "Índice de Riesgo":
         "| Humedad mínima (%) | **30%** | Menos humedad → más riesgo (ambiente seco) |\n"
         "| Velocidad del viento (km/h) | **20%** | Más viento → incendio se propaga más rápido |\n"
         "| Evapotranspiración / sequía (mm/día) | **25%** | Mayor sequía acumulada → más riesgo |\n\n"
-        "Cada componente se normaliza con umbrales basados en la climatología histórica de Uruguay "
-        "(ej: temperatura de referencia máxima = 42°C)."
+        "Cada componente se normaliza con umbrales regionales definidos para el alcance "
+        "Uruguay-Brasil-Argentina (ej: temperatura de referencia máxima = 42°C)."
     )
 
     st.markdown(
@@ -650,10 +648,24 @@ elif pagina == "Índice de Riesgo":
                     line=dict(color="#e74c3c", width=2.5), marker=dict(size=9),
                     text=df_fc["indice_riesgo"].round(2), textposition="top center",
                 ))
-            fig_fc.add_vline(
-                x=datetime.now().strftime("%Y-%m-%d"),
-                line_dash="dash", line_color="gray",
-                annotation_text="Hoy", annotation_position="top",
+            hoy = pd.Timestamp(datetime.now().date())
+            fig_fc.add_shape(
+                type="line",
+                x0=hoy,
+                x1=hoy,
+                y0=0,
+                y1=1,
+                yref="paper",
+                line=dict(color="gray", dash="dash"),
+            )
+            fig_fc.add_annotation(
+                x=hoy,
+                y=1,
+                yref="paper",
+                text="Hoy",
+                showarrow=False,
+                yanchor="bottom",
+                font=dict(color="gray", size=11),
             )
             fig_fc.update_layout(
                 yaxis=dict(range=[0, 1.1], title="Índice de riesgo (0–1)"),
@@ -871,10 +883,20 @@ elif pagina == "Tiempo Real":
                 line=dict(color="#e74c3c", width=2.5), marker=dict(size=9),
                 text=df_fc["indice_riesgo"].round(2), textposition="top center",
             ))
-        fig_fc.add_vline(
-            x=datetime.now().strftime("%Y-%m-%d"),
-            line_dash="dash", line_color="gray",
-            annotation_text="Hoy", annotation_position="top",
+        hoy = pd.Timestamp(datetime.now().date())
+        fig_fc.add_shape(
+            type="line",
+            x0=hoy, x1=hoy,
+            y0=0, y1=1,
+            xref="x", yref="paper",
+            line=dict(color="gray", dash="dash"),
+        )
+        fig_fc.add_annotation(
+            x=hoy, y=1,
+            xref="x", yref="paper",
+            text="Hoy",
+            showarrow=False,
+            yanchor="bottom",
         )
         fig_fc.update_layout(
             yaxis=dict(range=[0, 1.1], title="Índice de riesgo"),
@@ -911,7 +933,7 @@ elif pagina == "Análisis de Riesgo":
         "**¿Qué responde esta sección?**  \n"
         "Esta es la capa de valor analítico del proyecto. Con los datos ya integrados en PostgreSQL, "
         "respondemos preguntas que no pueden responderse mirando una sola fuente:  \n\n"
-        "- **¿Qué zona de Uruguay tiene más riesgo histórico?** → Ranking de zonas  \n"
+        "- **¿Qué punto del sistema tiene más riesgo histórico?** → Ranking de zonas  \n"
         "- **¿En qué época del año hay más incendios?** → Análisis estacional  \n"
         "- **¿Hubo días con condiciones excepcionalmente peligrosas?** → Detección de anomalías  \n"
         "- **¿El índice que calculamos realmente predice incendios?** → Correlación focos-riesgo  \n"
@@ -939,7 +961,7 @@ elif pagina == "Análisis de Riesgo":
 
     # ── Tab 1: Ranking de zonas ───────────────────────────────────────────────
     with tab_rank:
-        st.subheader("¿Qué departamento tiene mayor exposición histórica al riesgo?")
+        st.subheader("¿Qué punto de monitoreo tiene mayor exposición histórica al riesgo?")
         st.caption(
             "**Cómo se calcula el score:** 50% índice de riesgo promedio del período "
             "+ 50% proporción de días en nivel ALTO o MUY ALTO.  \n"
@@ -989,7 +1011,7 @@ elif pagina == "Análisis de Riesgo":
                 score_top = df_rank.iloc[0]["score_riesgo"]
                 st.success(
                     f"**Conclusión:** La zona con mayor exposición histórica al riesgo es **{zona_top}** "
-                    f"con un score de {score_top:.3f}. Este departamento debería tener prioridad "
+                    f"con un score de {score_top:.3f}. Este punto debería tener prioridad "
                     "en los planes de prevención y vigilancia de incendios forestales."
                 )
         else:
@@ -1000,7 +1022,7 @@ elif pagina == "Análisis de Riesgo":
         st.subheader("¿En qué época del año hay más riesgo de incendio?")
         st.caption(
             "Esta pregunta es clave para la gestión preventiva: si sabemos que el riesgo "
-            "aumenta en verano (enero-febrero en Uruguay), podemos activar planes de "
+            "aumenta en los meses más cálidos del corredor regional, podemos activar planes de "
             "emergencia con anticipación."
         )
         if not meteo.empty and "indice_riesgo" in meteo.columns:
@@ -1248,17 +1270,16 @@ elif pagina == "Análisis de Riesgo":
 # ════════════════════════════════════════════════════════════════════════════
 elif pagina == "Comparativo por País":
 
-    st.title("Comparativo por País — Sudamérica")
-    st.caption("Análisis comparativo del índice de riesgo y actividad de incendios entre los 6 países núcleo")
+    st.title("Comparativo por País")
+    st.caption("Análisis comparativo del índice de riesgo y actividad de incendios entre Uruguay, Brasil y Argentina")
 
     st.info(
         "**¿Para qué sirve esta página?**  \n"
         "Permite comparar la evolución del riesgo de incendio y la cantidad de focos detectados "
-        "entre Brasil, Bolivia, Paraguay, Argentina, Chile y Perú.  \n"
+        "entre Uruguay, Brasil y Argentina.  \n"
         "Los datos se agregan mensualmente promediando los puntos de monitoreo de cada país. "
         "Esto permite identificar **qué países tienen mayor riesgo estacional** y en qué períodos.  \n\n"
-        "Nota: esta vista requiere datos históricos cargados para los 18 puntos SA. "
-        "Con datos 2018–2024 cargados para los 6 países SA."
+        "Nota: esta vista requiere datos históricos cargados para los 11 puntos del alcance regional."
     )
 
     df_riesgo_pais  = cargar_riesgo_por_pais()
@@ -1302,7 +1323,7 @@ elif pagina == "Comparativo por País":
         else:
             st.warning(
                 "Sin datos de riesgo por país disponibles. "
-                "Ejecuta el ETL para los 18 puntos SA para ver esta comparación."
+                "Ejecuta el ETL para los 11 puntos del alcance regional para ver esta comparación."
             )
 
     # ── Tab 2: Focos por país ─────────────────────────────────────────────────
@@ -1310,7 +1331,7 @@ elif pagina == "Comparativo por País":
         st.subheader("Total de focos de calor por país y mes")
         st.caption(
             "Cantidad de focos FIRMS detectados por mes en cada país. "
-            "Brasil y Bolivia suelen concentrar la mayor actividad en el período agosto-octubre (seca)."
+            "Brasil suele concentrar la mayor actividad y Argentina muestra estacionalidad más marcada en meses secos."
         )
         if not df_focos_pais.empty:
             fig_f = px.bar(
@@ -1338,7 +1359,7 @@ elif pagina == "Comparativo por País":
         else:
             st.warning(
                 "Sin datos de focos por país. "
-                "Verificá que el ETL histórico haya corrido para los 18 puntos SA."
+                "Verificá que el ETL histórico haya corrido para los 11 puntos del alcance regional."
             )
 
     # ── Tab 3: Tabla comparativa ──────────────────────────────────────────────
@@ -1412,7 +1433,7 @@ elif pagina == "Fuentes y Datos Crudos":
         total_firms = sum(1 for f in firms_files)
         st.metric("Archivos CSV descargados", total_firms)
         st.metric("Años cubiertos", "2018–2024")
-        st.metric("Países cubiertos", "6 SA + Uruguay")
+        st.metric("Países cubiertos", "3")
 
     st.markdown("**Columnas del dato crudo:**")
     col_firms = {
@@ -1460,13 +1481,13 @@ elif pagina == "Fuentes y Datos Crudos":
 **Acceso:** API REST completamente gratuita, sin clave
 **Granularidad:** Diaria por punto geográfico
 **Cobertura temporal:** Desde 1940 hasta ayer
-**Puntos monitoreados:** 18 ciudades de 6 países SA + Rivera (Uruguay)
+**Puntos monitoreados:** 11 ciudades distribuidas entre Uruguay, Brasil y Argentina
 **Archivo ETL:** `etl/extract/extract_meteo.py`
         """)
     with col2:
         meteo_files = _glob.glob(str(RAW / "meteo" / "*.csv"))
         st.metric("Archivos CSV descargados", len(meteo_files))
-        st.metric("Ciudades/puntos", "18 SA + Rivera")
+        st.metric("Ciudades/puntos", "11")
         st.metric("Años cubiertos", "2018–2024")
 
     st.markdown("**Columnas del dato crudo:**")
@@ -1510,7 +1531,7 @@ elif pagina == "Fuentes y Datos Crudos":
 **Acceso:** Proxy gratuito vía Open-Meteo Air Quality API, sin clave
 **Granularidad:** Horaria por punto (se agrega a diaria en ETL)
 **Cobertura temporal:** 2018–2024
-**Puntos monitoreados:** 18 ciudades SA + Rivera
+**Puntos monitoreados:** 11 ciudades del alcance regional
 **Archivo ETL:** `etl/extract/extract_cams.py`
         """)
     with col2:
@@ -1560,7 +1581,7 @@ elif pagina == "Fuentes y Datos Crudos":
 **Acceso:** API gratuita vía ClimateSERV (NASA SERVIR)
 **Granularidad:** Mensual por punto geográfico
 **Cobertura temporal:** 1981–presente
-**Puntos monitoreados:** 18 ciudades SA
+**Puntos monitoreados:** 11 ciudades del alcance regional
 **Archivo ETL:** `etl/extract/extract_chirps.py`
         """)
     with col2:
