@@ -29,8 +29,10 @@ PROCESSED = PROJECT_ROOT / "data" / "processed"
 RAW_METEO = PROJECT_ROOT / "data" / "raw" / "meteo"
 
 from dashboard.db import (
+    calcular_estadisticas_focos,
     contar_focos,
     cargar_focos,
+    cargar_focos_por_dia,
     cargar_focos_nrt,
     cargar_meteo,
     cargar_forecast,
@@ -39,6 +41,7 @@ from dashboard.db import (
     cargar_dias_criticos,
     cargar_riesgo_por_pais,
     cargar_focos_por_pais_mes,
+    obtener_rango_focos,
     _pg_disponible,
 )
 
@@ -55,7 +58,7 @@ UMBRAL_FOCOS_ALERTA  = 10
 # ── Sidebar — filtros (se definen ANTES de cargar datos) ─────────────────────
 st.sidebar.title("SINIA-UY")
 st.sidebar.caption("Sistema de Monitoreo de Incendios Forestales · UY / BRA / ARG")
-st.sidebar.caption("3 países · 11 puntos · 2018-2025")
+st.sidebar.caption("3 países · 11 puntos · rango real disponible")
 st.sidebar.caption("UTEC · Ingeniería de Datos · 2026")
 st.sidebar.divider()
 
@@ -73,16 +76,25 @@ pagina = st.sidebar.radio(
     ],
 )
 
-# Filtro de año (determina qué datos se cargan desde PG)
+# Filtro de período (determina qué datos se cargan desde PG)
 st.sidebar.divider()
-anio_sel = st.sidebar.selectbox(
-    "Año",
-    list(range(2023, 2017, -1)),
+rango_focos = obtener_rango_focos()
+opciones_periodo = ["Todo el período"] + list(range(int(rango_focos["anio_max"]), int(rango_focos["anio_min"]) - 1, -1))
+periodo_sel = st.sidebar.selectbox(
+    "Período",
+    opciones_periodo,
     index=0,
-    help="Seleccioná el año a analizar. Los datos se cargan desde PostgreSQL.",
+    help="Seleccioná todo el rango real disponible o un año puntual. Los datos se cargan desde PostgreSQL.",
 )
-fecha_inicio_sel = f"{anio_sel}-01-01"
-fecha_fin_sel    = f"{anio_sel}-12-31"
+if periodo_sel == "Todo el período":
+    fecha_inicio_sel = str(rango_focos["fecha_min"])
+    fecha_fin_sel = str(rango_focos["fecha_max"])
+    periodo_label = f"{rango_focos['fecha_min']} a {rango_focos['fecha_max']}"
+else:
+    anio_sel = int(periodo_sel)
+    fecha_inicio_sel = f"{anio_sel}-01-01"
+    fecha_fin_sel = f"{anio_sel}-12-31"
+    periodo_label = str(anio_sel)
 
 # Filtro de país
 PAISES_DISP = {
@@ -96,17 +108,19 @@ pais_sel = PAISES_DISP[pais_sel_label]
 
 # ── Carga de datos (con filtros ya seleccionados) ─────────────────────────────
 firms  = cargar_focos(fecha_inicio_sel, fecha_fin_sel, pais_sel)
+focos_diarios = cargar_focos_por_dia(fecha_inicio_sel, fecha_fin_sel, pais_sel)
 total_focos_periodo = contar_focos(fecha_inicio_sel, fecha_fin_sel, pais_sel)
+stats_focos = calcular_estadisticas_focos(fecha_inicio_sel, fecha_fin_sel, pais_sel)
 nrt    = cargar_focos_nrt()
 meteo  = cargar_meteo("historico")
 fc     = cargar_forecast()
 cams   = cargar_cams()
 
-# Filtro de fechas adicional dentro del año
-if not firms.empty and pagina != "Tiempo Real":
+# Filtro de fechas adicional dentro del período
+if pagina != "Tiempo Real":
     st.sidebar.divider()
-    fecha_min = firms["fecha_adq"].min().date()
-    fecha_max = firms["fecha_adq"].max().date()
+    fecha_min = pd.to_datetime(fecha_inicio_sel).date()
+    fecha_max = pd.to_datetime(fecha_fin_sel).date()
     rango = st.sidebar.date_input(
         "Rango de fechas",
         value=(fecha_min, fecha_max),
@@ -114,8 +128,12 @@ if not firms.empty and pagina != "Tiempo Real":
         max_value=fecha_max,
     )
     if isinstance(rango, (list, tuple)) and len(rango) == 2:
-        firms = firms[firms["fecha_adq"].dt.date.between(rango[0], rango[1])]
+        if not firms.empty:
+            firms = firms[firms["fecha_adq"].dt.date.between(rango[0], rango[1])]
+        focos_diarios = cargar_focos_por_dia(str(rango[0]), str(rango[1]), pais_sel)
         total_focos_periodo = contar_focos(str(rango[0]), str(rango[1]), pais_sel)
+        stats_focos = calcular_estadisticas_focos(str(rango[0]), str(rango[1]), pais_sel)
+        periodo_label = f"{rango[0]} a {rango[1]}"
 
 # Aplicar filtro de país a meteo/forecast/cams (focos ya vienen filtrados de PG)
 if pais_sel:
@@ -252,12 +270,12 @@ if pagina == "Resumen General":
         st.success("Sin alertas activas — condiciones normales.", icon="✅")
 
     # ── KPIs con explicación ──────────────────────────────────────────────────
-    st.subheader(f"Indicadores principales del período analizado ({anio_sel})")
+    st.subheader(f"Indicadores principales del período analizado ({periodo_label})")
 
     c1, c2, c3, c4 = st.columns(4)
 
     total_focos = total_focos_periodo
-    frp_max = firms["potencia_radiativa"].max() if not firms.empty and "potencia_radiativa" in firms.columns else 0
+    frp_max = stats_focos.get("frp_maximo", 0)
     dias_alto = meteo["nivel_riesgo"].isin(["alto", "muy_alto"]).sum() if not meteo.empty and "nivel_riesgo" in meteo.columns else 0
     nivel_actual = str(meteo.sort_values("fecha").iloc[-1]["nivel_riesgo"]).upper() \
         if not meteo.empty and "nivel_riesgo" in meteo.columns and "fecha" in meteo.columns else "N/D"
@@ -324,11 +342,11 @@ if pagina == "Resumen General":
     with col_graf:
         st.subheader("Focos por semana")
         st.caption("Evolución temporal de la actividad de incendios. Picos = semanas críticas.")
-        if not firms.empty:
+        if not focos_diarios.empty:
             semanal = (
-                firms.set_index("fecha_adq").resample("W")["latitud"]
-                .count().reset_index()
-                .rename(columns={"fecha_adq": "semana", "latitud": "focos"})
+                focos_diarios.set_index("fecha").resample("W")["focos"]
+                .sum().reset_index()
+                .rename(columns={"fecha": "semana"})
             )
             fig_sem = px.bar(
                 semanal, x="semana", y="focos",
@@ -386,7 +404,7 @@ if pagina == "Resumen General":
 elif pagina == "Focos de Calor":
 
     st.title("Focos de Calor — NASA FIRMS VIIRS")
-    st.caption(f"Satélite: VIIRS Suomi NPP (Standard Processing) · Período: {anio_sel} · Uruguay, Brasil y Argentina")
+    st.caption(f"Satélite: VIIRS Suomi NPP (Standard Processing) · Período: {periodo_label} · Uruguay, Brasil y Argentina")
 
     st.info(
         "**¿Qué es un foco de calor?**  \n"
@@ -407,18 +425,22 @@ elif pagina == "Focos de Calor":
         c1, c2, c3 = st.columns(3)
         c1.metric(
             "Total de focos detectados",
-            f"{len(firms):,}",
-            help="Cantidad de hotspots satelitales detectados en el período seleccionado.",
+            f"{total_focos_periodo:,}",
+            help="Cantidad real de hotspots satelitales detectados en el período seleccionado.",
         )
         c2.metric(
             "FRP promedio",
-            f"{firms['potencia_radiativa'].mean():.2f} MW" if "potencia_radiativa" in firms.columns else "N/D",
+            f"{stats_focos.get('frp_promedio', 0):.2f} MW",
             help="Intensidad promedio de los focos. Valores > 100 MW indican incendios grandes.",
         )
         c3.metric(
             "FRP máximo registrado",
-            f"{firms['potencia_radiativa'].max():.2f} MW" if "potencia_radiativa" in firms.columns else "N/D",
+            f"{stats_focos.get('frp_maximo', 0):.2f} MW",
             help="El foco más intenso del período. Representa el incendio de mayor envergadura.",
+        )
+        st.caption(
+            "Totales, FRP y evolución temporal usan agregaciones reales de PostgreSQL. "
+            "Mapa, tabla y gráficos de detalle usan una muestra máxima de 100.000 focos para mantener el dashboard ágil."
         )
 
         st.subheader("Evolución diaria de focos detectados")
@@ -426,11 +448,7 @@ elif pagina == "Focos de Calor":
             "Cada barra es un día. Los picos corresponden a eventos de incendios activos. "
             "La tendencia muestra si la actividad aumenta o disminuye en el período."
         )
-        diario = (
-            firms.set_index("fecha_adq").resample("D")["latitud"]
-            .count().reset_index()
-            .rename(columns={"fecha_adq": "fecha", "latitud": "focos"})
-        )
+        diario = focos_diarios.copy()
         fig_line = px.line(
             diario, x="fecha", y="focos",
             labels={"fecha": "Fecha", "focos": "Focos detectados por día"},
@@ -516,7 +534,7 @@ elif pagina == "Índice de Riesgo":
     )
     st.divider()
 
-    tab_hist, tab_fc = st.tabs([f"Histórico ({anio_sel})", "Pronóstico 7 días"])
+    tab_hist, tab_fc = st.tabs([f"Histórico ({periodo_label})", "Pronóstico 7 días"])
 
     with tab_hist:
         if meteo.empty:

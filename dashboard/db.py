@@ -71,6 +71,48 @@ def _filtrar_fechas(df: pd.DataFrame, fecha_inicio: str | None, fecha_fin: str |
 # FOCOS DE CALOR — HISTÓRICO
 # ─────────────────────────────────────────────────────────────────────────────
 
+@st.cache_data(ttl=600)
+def obtener_rango_focos() -> dict[str, object]:
+    """Rango temporal real de focos dentro del alcance ARG/BRA/URY."""
+    if _pg_disponible():
+        try:
+            df = _query_pg(f"""
+                SELECT MIN(fecha_adq) AS fecha_min, MAX(fecha_adq) AS fecha_max
+                FROM focos_calor
+                WHERE pais IN ({SQL_SCOPE_PAISES})
+            """)
+            if not df.empty and pd.notna(df.iloc[0]["fecha_min"]) and pd.notna(df.iloc[0]["fecha_max"]):
+                fecha_min = pd.to_datetime(df.iloc[0]["fecha_min"]).date()
+                fecha_max = pd.to_datetime(df.iloc[0]["fecha_max"]).date()
+                return {
+                    "fecha_min": fecha_min,
+                    "fecha_max": fecha_max,
+                    "anio_min": fecha_min.year,
+                    "anio_max": fecha_max.year,
+                    "fuente": "postgresql",
+                }
+        except Exception:
+            pass
+
+    p = DIR_PROCESADO / "firms_procesado.parquet"
+    if p.exists():
+        df = pd.read_parquet(p, columns=["fecha_adq", "pais"])
+        df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+        df = df[df["pais"].isin(PAISES_ALCANCE)].copy()
+        fecha_min = df["fecha_adq"].min().date()
+        fecha_max = df["fecha_adq"].max().date()
+        return {
+            "fecha_min": fecha_min,
+            "fecha_max": fecha_max,
+            "anio_min": fecha_min.year,
+            "anio_max": fecha_max.year,
+            "fuente": "parquet",
+        }
+
+    hoy = pd.Timestamp.today().date()
+    return {"fecha_min": hoy, "fecha_max": hoy, "anio_min": hoy.year, "anio_max": hoy.year, "fuente": "sin datos"}
+
+
 @st.cache_data(ttl=300)
 def contar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, pais: str | None = None) -> int:
     """
@@ -112,6 +154,109 @@ def contar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, 
         df = _filtrar_fechas(df, fecha_inicio, fecha_fin, "fecha_adq")
         return int(len(df))
     return 0
+
+
+@st.cache_data(ttl=300)
+def cargar_focos_por_dia(fecha_inicio: str | None = None, fecha_fin: str | None = None, pais: str | None = None) -> pd.DataFrame:
+    """Serie diaria real de focos; usa agregacion para no depender de la muestra del mapa."""
+    if _pg_disponible():
+        try:
+            where_clauses = []
+            params: list = []
+            if fecha_inicio:
+                where_clauses.append("fecha_adq >= %s")
+                params.append(fecha_inicio)
+            if fecha_fin:
+                where_clauses.append("fecha_adq <= %s")
+                params.append(fecha_fin)
+            if pais:
+                where_clauses.append("pais = %s")
+                params.append(pais)
+            df = _query_pg(f"""
+                SELECT fecha_adq::date AS fecha, COUNT(*) AS focos
+                FROM focos_calor
+                WHERE pais IN ({SQL_SCOPE_PAISES})
+                {"AND " + " AND ".join(where_clauses) if where_clauses else ""}
+                GROUP BY fecha_adq::date
+                ORDER BY fecha
+            """, tuple(params))
+            df["fecha"] = pd.to_datetime(df["fecha"])
+            df.attrs["fuente"] = "postgresql"
+            return df
+        except Exception:
+            pass
+
+    p = DIR_PROCESADO / "firms_procesado.parquet"
+    if p.exists():
+        df = pd.read_parquet(p, columns=["fecha_adq", "pais"])
+        df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+        df = df[df["pais"].isin(PAISES_ALCANCE)].copy()
+        if pais:
+            df = df[df["pais"] == pais].copy()
+        df = _filtrar_fechas(df, fecha_inicio, fecha_fin, "fecha_adq")
+        out = df.groupby(df["fecha_adq"].dt.date).size().reset_index(name="focos")
+        out = out.rename(columns={"fecha_adq": "fecha"})
+        out["fecha"] = pd.to_datetime(out["fecha"])
+        out.attrs["fuente"] = "parquet"
+        return out
+    return pd.DataFrame()
+
+
+@st.cache_data(ttl=300)
+def calcular_estadisticas_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, pais: str | None = None) -> dict[str, object]:
+    """Estadisticas reales de focos para KPIs, sin depender de la muestra visual."""
+    if _pg_disponible():
+        try:
+            where_clauses = []
+            params: list = []
+            if fecha_inicio:
+                where_clauses.append("fecha_adq >= %s")
+                params.append(fecha_inicio)
+            if fecha_fin:
+                where_clauses.append("fecha_adq <= %s")
+                params.append(fecha_fin)
+            if pais:
+                where_clauses.append("pais = %s")
+                params.append(pais)
+
+            df = _query_pg(f"""
+                SELECT
+                    COUNT(*) AS total,
+                    AVG(potencia_radiativa) AS frp_promedio,
+                    MAX(potencia_radiativa) AS frp_maximo
+                FROM focos_calor
+                WHERE pais IN ({SQL_SCOPE_PAISES})
+                {"AND " + " AND ".join(where_clauses) if where_clauses else ""}
+            """, tuple(params))
+            if not df.empty:
+                row = df.iloc[0]
+                return {
+                    "total": int(row["total"] or 0),
+                    "frp_promedio": float(row["frp_promedio"] or 0),
+                    "frp_maximo": float(row["frp_maximo"] or 0),
+                    "fuente": "postgresql",
+                }
+        except Exception:
+            pass
+
+    p = DIR_PROCESADO / "firms_procesado.parquet"
+    if p.exists():
+        df = pd.read_parquet(p, columns=["fecha_adq", "pais", "potencia_radiativa"])
+        df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+        df = df[df["pais"].isin(PAISES_ALCANCE)].copy()
+        if pais:
+            df = df[df["pais"] == pais].copy()
+        df = _filtrar_fechas(df, fecha_inicio, fecha_fin, "fecha_adq")
+        frp_promedio = df["potencia_radiativa"].mean() if not df.empty else 0
+        frp_maximo = df["potencia_radiativa"].max() if not df.empty else 0
+        return {
+            "total": int(len(df)),
+            "frp_promedio": float(frp_promedio) if pd.notna(frp_promedio) else 0.0,
+            "frp_maximo": float(frp_maximo) if pd.notna(frp_maximo) else 0.0,
+            "fuente": "parquet",
+        }
+
+    return {"total": 0, "frp_promedio": 0.0, "frp_maximo": 0.0, "fuente": "sin datos"}
 
 
 @st.cache_data(ttl=300)
