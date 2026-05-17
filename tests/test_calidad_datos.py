@@ -45,8 +45,11 @@ LON_MIN, LAT_MIN, LON_MAX, LAT_MAX = [float(v) for v in SA_BBOX.split(",")]
 
 def _cargar_resultados() -> list[dict]:
     if RESULTADOS_PATH.exists():
-        with open(RESULTADOS_PATH, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(RESULTADOS_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return []
     return []
 
 
@@ -61,8 +64,14 @@ def _guardar_resultado(nombre: str, categoria: str, estado: str,
         "mensaje":    mensaje,
         "ejecutado":  datetime.now(timezone.utc).isoformat(),
     })
-    with open(RESULTADOS_PATH, "w", encoding="utf-8") as f:
-        json.dump(resultados, f, indent=2, ensure_ascii=False)
+    try:
+        with open(RESULTADOS_PATH, "w", encoding="utf-8") as f:
+            json.dump(resultados, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        logger.warning(
+            f"No se pudo escribir el reporte de tests en {RESULTADOS_PATH}: {e}",
+            extra={"etl_stage": "testing", "source": "quality"},
+        )
 
     icon = "[OK]" if estado == "PASS" else "[X]"
     logger.info(

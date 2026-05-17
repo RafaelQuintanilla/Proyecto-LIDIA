@@ -1,61 +1,47 @@
-# SINIA-UY — Guía de Desarrollo y Deploy
+# SINIA-UY - Guia de desarrollo y defensa
 
-Esta carpeta contiene la documentación operativa del proyecto: cómo está construido, cómo trabajarlo en tu máquina, cómo versionarlo con Git y cómo subirlo al servidor de UTEC. Es **complementaria** a `docs/` (que contiene la defensa académica, arquitectura formal e informes EC1/EC2).
+Esta carpeta contiene documentacion operativa para moverse por el proyecto,
+entenderlo, defenderlo y hacer pruebas controladas.
 
-## Índice
+## Punto de entrada recomendado
 
-| Doc | Propósito | Cuándo leerlo |
-|-----|-----------|---------------|
-| [10_EXPLICACION_PROYECTO_PASO_A_PASO.md](10_EXPLICACION_PROYECTO_PASO_A_PASO.md) | Qué hace el proyecto, capa por capa, en lenguaje claro | Primero, para entender el todo |
-| [11_SETUP_LOCAL.md](11_SETUP_LOCAL.md) | Levantar Postgres + Mongo + ETL + dashboard en tu PC | Antes de tocar código |
-| [12_WORKFLOW_GIT.md](12_WORKFLOW_GIT.md) | Inicializar repo, ramas, commits, push a GitHub | Apenas tengas el setup local |
-| [13_DEPLOY_SERVIDOR_UTEC.md](13_DEPLOY_SERVIDOR_UTEC.md) | Cómo subir el sistema al servidor de UTEC | Cuando local funcione end-to-end |
-| [14_PLAN_DOCUMENTACION_PARALELA.md](14_PLAN_DOCUMENTACION_PARALELA.md) | Estructura y plantillas para escribir la doc de desarrollo | En paralelo a todo lo demás |
-| [15_CHECKLIST_DIARIO.md](15_CHECKLIST_DIARIO.md) | Checklist rápido para cada sesión de trabajo | Cada vez que abras el proyecto |
+Leer en este orden:
 
-## Flujo recomendado las primeras semanas
+1. `01_NAVEGACION_RAPIDA.md`
+2. `02_GUIA_ETL_SEPARADA.md`
+3. `03_GUIA_MODELO_ER_TABLAS.md`
+4. `04_GUIA_DASHBOARD_SEPARADA.md`
+5. `05_GUIA_PRUEBAS_TRIBUNAL.md`
 
-```
-Día 1  → Leer 10 + 11. Levantar Postgres y Mongo localmente. Ver el dashboard.
-Día 2  → Leer 12. git init, primer commit, push a GitHub.
-Día 3  → Leer 14. Crear plantillas vacías de la doc de desarrollo.
-Día 4+ → Leer 13. Cuando el local esté estable, deploy a UTEC.
-         Trabajar local → commit → push → pull en servidor.
-Diario → Usar 15 como checklist.
-```
+## Indice
 
-## Convención de carpetas
+| Doc | Proposito | Cuando leerlo |
+|---|---|---|
+| `01_NAVEGACION_RAPIDA.md` | Ubicarse por carpetas, archivos y comandos | Cada vez que abras el proyecto |
+| `02_GUIA_ETL_SEPARADA.md` | Entender extract, transform y load | Para defender el pipeline |
+| `03_GUIA_MODELO_ER_TABLAS.md` | Entender ER, tablas, claves y tipos | Para defender base de datos |
+| `04_GUIA_DASHBOARD_SEPARADA.md` | Explicar cada seccion del dashboard | Para defender la interfaz |
+| `05_GUIA_PRUEBAS_TRIBUNAL.md` | Pruebas seguras si modifican datos | Para practicar con el profesor |
+| `10_EXPLICACION_PROYECTO_PASO_A_PASO.md` | Explicacion amplia del proyecto | Para entender el todo |
+| `11_SETUP_LOCAL.md` | Levantar el sistema local | Antes de correr dashboard o ETL |
+| `12_WORKFLOW_GIT.md` | Flujo de Git | Para versionar cambios |
+| `13_DEPLOY_SERVIDOR_UTEC.md` | Deploy en servidor UTEC | Cuando local funcione |
+| `14_PLAN_DOCUMENTACION_PARALELA.md` | Plan de documentacion | Para ordenar entregables |
+| `15_CHECKLIST_DIARIO.md` | Checklist de trabajo diario | Al iniciar una sesion |
+| `16_DEPLOY_STREAMLIT_CLOUD.md` | Deploy en Streamlit Cloud | Para URL publica |
+| `17_LAB_DEFENSA_PRUEBAS_TRIBUNAL.md` | Laboratorio SQL detallado | Para simulacro tecnico |
+| `18_DEFENSA_DASHBOARD_SECCIONES.md` | Defensa larga del dashboard | Para estudiar preguntas del dashboard |
 
-```
-docs/
-├── (académico — NO TOCAR aquí desarrollo)
-│   ├── DEFENSA.md
-│   ├── ARQUITECTURA.md
-│   ├── FUENTES_Y_DATOS.md
-│   ├── INFORME_EC1.md
-│   ├── PROYECTO_FINAL_EC1_EC2.md
-│   └── figures/
-│
-└── desarrollo/        ← ESTA GUÍA
-    ├── 00_INDICE.md
-    ├── 10_EXPLICACION_PROYECTO_PASO_A_PASO.md
-    ├── 11_SETUP_LOCAL.md
-    ├── 12_WORKFLOW_GIT.md
-    ├── 13_DEPLOY_SERVIDOR_UTEC.md
-    ├── 14_PLAN_DOCUMENTACION_PARALELA.md
-    └── 15_CHECKLIST_DIARIO.md
+## Flujo de estudio
+
+```text
+Navegacion -> ETL -> Modelo ER -> Dashboard -> Pruebas
 ```
 
-## Información que necesitas tener a mano
+## Comandos basicos
 
-Antes de empezar el deploy reúne estos datos del servidor UTEC. Si no los tienes todavía, pídeselos al docente o al área de infraestructura:
-
-- [ ] IP o hostname del servidor UTEC
-- [ ] Usuario SSH y forma de autenticación (clave o password)
-- [ ] Sistema operativo (probablemente Ubuntu Server)
-- [ ] ¿Tiene Docker instalado? ¿O hay que instalar Postgres y Mongo nativos?
-- [ ] Puertos abiertos hacia el exterior (5432, 27017, 8501 normalmente bloqueados desde fuera)
-- [ ] Si hay un dominio o subdominio asignado para el dashboard
-- [ ] Política de backups: ¿guardamos en el servidor o externos?
-
-Esto está más detallado en `13_DEPLOY_SERVIDOR_UTEC.md`.
+```bash
+python -m pytest tests/test_calidad_datos.py -q
+python -m streamlit run dashboard/app.py --server.port 8502
+git status --short
+```

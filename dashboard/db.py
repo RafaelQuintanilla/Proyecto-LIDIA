@@ -31,9 +31,9 @@ PAISES_ALCANCE = tuple(sorted(PAISES_SA.keys()))
 PUNTOS_ALCANCE = tuple(PUNTOS_METEO_SA.keys())
 SQL_SCOPE_PAISES = ", ".join(f"'{pais}'" for pais in PAISES_ALCANCE)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CONEXIÓN
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# CONEXION
+# ---------------------------------------------------------------------------
 
 def _pg_disponible() -> bool:
     """Verifica si PostgreSQL responde. Falla silenciosamente."""
@@ -67,9 +67,9 @@ def _filtrar_fechas(df: pd.DataFrame, fecha_inicio: str | None, fecha_fin: str |
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# FOCOS DE CALOR — HISTÓRICO
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# FOCOS DE CALOR - HISTORICO
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=600)
 def obtener_rango_focos() -> dict[str, object]:
@@ -319,9 +319,9 @@ def cargar_focos(fecha_inicio: str | None = None, fecha_fin: str | None = None, 
     return pd.DataFrame()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 # FOCOS NRT
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=180)
 def cargar_focos_nrt() -> pd.DataFrame:
@@ -360,9 +360,9 @@ def cargar_focos_nrt() -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# METEOROLOGÍA + ÍNDICE DE RIESGO
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# METEOROLOGIA + INDICE DE RIESGO
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=300)
 def cargar_meteo(tipo_dato: str = "historico") -> pd.DataFrame:
@@ -409,9 +409,9 @@ def cargar_meteo(tipo_dato: str = "historico") -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 # FORECAST
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=3600)
 def cargar_forecast() -> pd.DataFrame:
@@ -453,9 +453,9 @@ def cargar_forecast() -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 # CALIDAD DEL AIRE
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=3600)
 def cargar_cams() -> pd.DataFrame:
@@ -500,37 +500,64 @@ def cargar_cams() -> pd.DataFrame:
     return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 # RESUMEN EJECUTIVO POR PUNTO (para KPIs del dashboard)
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=300)
 def cargar_resumen_puntos() -> pd.DataFrame:
     """
     Último estado de cada punto de monitoreo.
-    Fuente: vista v_riesgo_actual (PostgreSQL) — sin fallback (es analítica pura).
+    Fuente: vista v_riesgo_actual (PostgreSQL) o agregación sobre parquet (fallback).
     """
     if _pg_disponible():
         try:
-            return _query_pg(
+            df = _query_pg(
                 f"SELECT * FROM v_riesgo_actual WHERE pais IN ({SQL_SCOPE_PAISES}) "
                 "ORDER BY indice_riesgo DESC NULLS LAST"
             )
+            df.attrs["fuente"] = "postgresql"
+            return df
         except Exception:
             pass
-    return pd.DataFrame()
+
+    # Fallback: parquet - replica v_riesgo_actual (ultima fecha historica por punto)
+    frames = [pd.read_parquet(f) for f in DIR_PROCESADO.glob("meteo_procesado_*.parquet")]
+    if not frames:
+        return pd.DataFrame()
+    df = pd.concat(frames, ignore_index=True)
+    df["fecha"] = pd.to_datetime(df["fecha"])
+    df = df[(df.get("tipo_dato") == "historico") & df["pais"].isin(PAISES_ALCANCE)].copy()
+    if df.empty:
+        return pd.DataFrame()
+    # Ultima fila por punto
+    idx = df.groupby("punto")["fecha"].idxmax()
+    df = df.loc[idx].copy()
+    df = df.rename(columns={
+        "temperature_2m_max": "temp_max",
+        "relative_humidity_2m_min": "humedad_min",
+        "wind_speed_10m_max": "viento_max",
+        "precipitation_sum": "precipitacion",
+    })
+    cols = ["punto", "pais", "fecha", "indice_riesgo", "nivel_riesgo",
+            "temp_max", "humedad_min", "viento_max", "precipitacion"]
+    df = df[[c for c in cols if c in df.columns]].sort_values(
+        "indice_riesgo", ascending=False, na_position="last"
+    ).reset_index(drop=True)
+    df.attrs["fuente"] = "parquet"
+    return df
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DÍAS CRÍTICOS
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# DIAS CRITICOS
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=600)
 def cargar_dias_criticos() -> pd.DataFrame:
     """Días históricos con riesgo ALTO o MUY ALTO en al menos un punto."""
     if _pg_disponible():
         try:
-            return _query_pg(f"""
+            df = _query_pg(f"""
                 SELECT
                     fecha,
                     COUNT(DISTINCT punto) AS puntos_en_alerta,
@@ -544,14 +571,38 @@ def cargar_dias_criticos() -> pd.DataFrame:
                 GROUP BY fecha
                 ORDER BY fecha DESC
             """)
+            df.attrs["fuente"] = "postgresql"
+            return df
         except Exception:
             pass
-    return pd.DataFrame()
+
+    # Fallback: parquet - replica v_dias_criticos
+    frames = [pd.read_parquet(f) for f in DIR_PROCESADO.glob("meteo_procesado_*.parquet")]
+    if not frames:
+        return pd.DataFrame()
+    df = pd.concat(frames, ignore_index=True)
+    df["fecha"] = pd.to_datetime(df["fecha"])
+    df = df[
+        df["nivel_riesgo"].isin(["alto", "muy_alto"])
+        & (df.get("tipo_dato") == "historico")
+        & df["pais"].isin(PAISES_ALCANCE)
+    ].copy()
+    if df.empty:
+        return pd.DataFrame()
+    agg = df.groupby("fecha").agg(
+        puntos_en_alerta=("punto", "nunique"),
+        paises_en_alerta=("pais", "nunique"),
+        indice_maximo=("indice_riesgo", "max"),
+        paises_afectados=("pais", lambda s: ", ".join(sorted(s.unique()))),
+        puntos_afectados=("punto", lambda s: ", ".join(sorted(s.unique()))),
+    ).reset_index().sort_values("fecha", ascending=False).reset_index(drop=True)
+    agg.attrs["fuente"] = "parquet"
+    return agg
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MÉTRICAS DE RENDIMIENTO (para defensa)
-# ─────────────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# METRICAS DE RENDIMIENTO (para defensa)
+# ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=600)
 def cargar_riesgo_por_pais() -> pd.DataFrame:
@@ -566,7 +617,26 @@ def cargar_riesgo_por_pais() -> pd.DataFrame:
             return df
         except Exception:
             pass
-    return pd.DataFrame()
+
+    # Fallback: parquet - replica v_riesgo_por_pais
+    frames = [pd.read_parquet(f) for f in DIR_PROCESADO.glob("meteo_procesado_*.parquet")]
+    if not frames:
+        return pd.DataFrame()
+    df = pd.concat(frames, ignore_index=True)
+    df["fecha"] = pd.to_datetime(df["fecha"])
+    df = df[(df.get("tipo_dato") == "historico") & df["pais"].isin(PAISES_ALCANCE)].copy()
+    if df.empty:
+        return pd.DataFrame()
+    df["mes"] = df["fecha"].dt.to_period("M").dt.to_timestamp()
+    agg = df.groupby(["pais", "mes"]).agg(
+        riesgo_promedio=("indice_riesgo", lambda s: round(float(s.mean()), 4) if s.notna().any() else None),
+        riesgo_maximo=("indice_riesgo", lambda s: round(float(s.max()), 4) if s.notna().any() else None),
+        dias_criticos=("nivel_riesgo", lambda s: int(s.isin(["alto", "muy_alto"]).sum())),
+        total_registros=("indice_riesgo", "size"),
+    ).reset_index().sort_values(["pais", "mes"]).reset_index(drop=True)
+    agg["mes"] = pd.to_datetime(agg["mes"])
+    agg.attrs["fuente"] = "parquet"
+    return agg
 
 
 @st.cache_data(ttl=600)
@@ -582,7 +652,28 @@ def cargar_focos_por_pais_mes() -> pd.DataFrame:
             return df
         except Exception:
             pass
-    return pd.DataFrame()
+
+    # Fallback: parquet - replica v_focos_por_pais_mes
+    p = DIR_PROCESADO / "firms_procesado.parquet"
+    if not p.exists():
+        return pd.DataFrame()
+    df = pd.read_parquet(p)
+    df["fecha_adq"] = pd.to_datetime(df["fecha_adq"])
+    df = df[df["pais"].isin(PAISES_ALCANCE)].copy()
+    if df.empty:
+        return pd.DataFrame()
+    df["mes"] = df["fecha_adq"].dt.to_period("M").dt.to_timestamp()
+    agg_dict = {
+        "total_focos": ("fecha_adq", "size"),
+        "frp_promedio": ("potencia_radiativa", lambda s: round(float(s.mean()), 2) if s.notna().any() else None),
+        "frp_maximo": ("potencia_radiativa", lambda s: round(float(s.max()), 2) if s.notna().any() else None),
+    }
+    if "confianza_num" in df.columns:
+        agg_dict["focos_alta_confianza"] = ("confianza_num", lambda s: int((s == 3).sum()))
+    agg = df.groupby(["pais", "mes"]).agg(**agg_dict).reset_index().sort_values(["pais", "mes"]).reset_index(drop=True)
+    agg["mes"] = pd.to_datetime(agg["mes"])
+    agg.attrs["fuente"] = "parquet"
+    return agg
 
 
 def medir_tiempos_consultas() -> dict[str, float]:
