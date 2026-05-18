@@ -99,6 +99,20 @@ Docker Desktop tampoco estaba activo:
 dockerDesktopLinuxEngine no disponible
 ```
 
+Al intentar abrir Docker Desktop, Windows informo:
+
+```text
+Wsl/0x80070422
+No se puede iniciar el servicio, porque esta deshabilitado
+o porque no tiene dispositivos habilitados asociados a el.
+```
+
+La consulta del servicio `LxssManager` devolvio:
+
+```text
+ERROR 1060: El servicio especificado no existe como servicio instalado.
+```
+
 Lectura para defensa:
 
 > MongoDB no fallo por estructura de datos ni por schema. El servicio local no
@@ -142,6 +156,16 @@ python scripts/evidenciar_cdc_ec3.py
 
 Si Docker Desktop esta apagado, primero abrir Docker Desktop y esperar que el
 engine Linux este disponible.
+
+Si aparece `Wsl/0x80070422`, resolver primero Windows/WSL:
+
+```powershell
+wsl --status
+wsl --shutdown
+```
+
+Si sigue fallando, habilitar o reinstalar WSL/Docker Desktop desde Windows.
+Ese paso es de sistema operativo, no de codigo del proyecto.
 
 ## 9. Como explicarlo al profesor
 

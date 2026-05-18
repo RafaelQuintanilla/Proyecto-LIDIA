@@ -54,7 +54,28 @@ Lectura para defensa:
 > titulos, subtitulos y metricas. Las consultas llegan a `dashboard/db.py` y el
 > dashboard puede construir la vista inicial.
 
-## 4. Optimizacion para demo
+## 4. Captura visual
+
+Se genero una captura real del dashboard renderizado:
+
+```text
+reports/dashboard_evidencia_ultimo.png
+```
+
+La captura muestra:
+
+- barra lateral con secciones del dashboard;
+- titulo principal del sistema;
+- explicacion del problema;
+- integracion de las fuentes NASA FIRMS, Open-Meteo, CAMS, CHIRPS y MODIS.
+
+Lectura para defensa:
+
+> La evidencia visual confirma que el dashboard no solo responde por HTTP, sino
+> que renderiza la pantalla inicial con contenido funcional y navegacion por
+> secciones.
+
+## 5. Optimizacion para demo
 
 Antes, el mapa podia intentar renderizar hasta `100.000` focos en la pantalla
 inicial. Eso era correcto analiticamente, pero pesado para una demo con navegador
@@ -81,7 +102,7 @@ Frase de defensa:
 > porque renderizar millones de puntos no aporta claridad visual y afecta la
 > experiencia de usuario.
 
-## 5. Secciones del dashboard
+## 6. Secciones del dashboard
 
 La interfaz incluye:
 
@@ -100,7 +121,7 @@ Estas secciones estan explicadas en detalle en:
 docs/desarrollo/18_DEFENSA_DASHBOARD_SECCIONES.md
 ```
 
-## 6. Comando recomendado para la defensa
+## 7. Comando recomendado para la defensa
 
 ```bash
 python -m streamlit run dashboard/app.py --server.port 8502
@@ -112,7 +133,7 @@ Luego abrir:
 http://localhost:8502
 ```
 
-## 7. Que mostrar ante el tribunal
+## 8. Que mostrar ante el tribunal
 
 1. Abrir el dashboard.
 2. Mostrar el selector de secciones.
@@ -123,9 +144,9 @@ http://localhost:8502
 7. Cambiar de pais para demostrar interactividad.
 8. Ir a "Fuentes y Datos Crudos" para mostrar datos antes de transformacion.
 
-## 8. Riesgo residual
+## 9. Riesgo residual
 
-La captura automatica con Microsoft Edge headless quedo en pantalla de carga de
-Streamlit. Por eso no se guarda como evidencia visual final. Para la entrega, la
-evidencia visual recomendada es una captura manual del navegador normal, una vez
-abierto `http://localhost:8502`.
+Microsoft Edge headless quedo en pantalla de carga de Streamlit, por eso se uso
+el navegador integrado para obtener la captura final. Si el tribunal pide demo
+en vivo, abrir el dashboard en navegador normal y esperar a que carguen KPIs y
+graficos antes de navegar por secciones.

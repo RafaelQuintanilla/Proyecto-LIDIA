@@ -39,6 +39,7 @@ Leer en este orden:
 | `16_DEPLOY_STREAMLIT_CLOUD.md` | Deploy en Streamlit Cloud | Para URL publica |
 | `17_LAB_DEFENSA_PRUEBAS_TRIBUNAL.md` | Laboratorio SQL detallado | Para simulacro tecnico |
 | `18_DEFENSA_DASHBOARD_SECCIONES.md` | Defensa larga del dashboard | Para estudiar preguntas del dashboard |
+| `19_GUION_DEMO_ORAL_TERCERA_ENTREGA.md` | Guion corto para demo en vivo | Para practicar la exposicion |
 
 ## Flujo de estudio
 
