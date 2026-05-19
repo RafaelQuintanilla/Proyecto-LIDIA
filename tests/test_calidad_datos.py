@@ -89,6 +89,21 @@ class TestAlcanceConfiguracion:
         assert not extras
         assert len(puntos_uy) == 19
 
+    def test_datasets_procesados_cubren_36_puntos(self, df_meteo, df_cams):
+        chirps_path = DIR_PROCESADO / "chirps_sa.parquet"
+        if not chirps_path.exists():
+            pytest.skip("chirps_sa.parquet no encontrado")
+        df_chirps = pd.read_parquet(chirps_path)
+        cobertura = {
+            "meteo": sorted(PUNTOS_ALCANCE - set(df_meteo["punto"].dropna().astype(str))),
+            "cams": sorted(PUNTOS_ALCANCE - set(df_cams["punto"].dropna().astype(str))),
+            "chirps": sorted(PUNTOS_ALCANCE - set(df_chirps["punto"].dropna().astype(str))),
+        }
+        estado = "PASS" if all(not faltantes for faltantes in cobertura.values()) else "FAIL"
+        msg = "Datasets procesados cubren los 36 puntos del alcance"
+        _guardar_resultado("cobertura_datasets_36_puntos", "alcance", estado, cobertura, msg)
+        assert cobertura == {"meteo": [], "cams": [], "chirps": []}
+
 
 # =============================================================================
 # HELPERS PARA REGISTRO DE RESULTADOS

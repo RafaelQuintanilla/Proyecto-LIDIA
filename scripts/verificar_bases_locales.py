@@ -46,8 +46,13 @@ def revisar_postgres() -> bool:
         vistas = cur.fetchone()[0]
         cur.execute("SELECT COUNT(*) FROM puntos_monitoreo")
         puntos = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM puntos_monitoreo WHERE activo = TRUE")
+        puntos_activos = cur.fetchone()[0]
         print(f"[OK] PostgreSQL local conectado: {os.getenv('PG_DATABASE', 'sinia_uy')}")
-        print(f"     tablas={tablas} vistas={vistas} puntos_monitoreo={puntos}")
+        print(
+            f"     tablas={tablas} vistas={vistas} "
+            f"puntos_monitoreo={puntos} activos={puntos_activos}"
+        )
         cur.close()
         conn.close()
         return True

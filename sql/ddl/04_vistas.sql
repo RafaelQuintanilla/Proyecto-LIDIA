@@ -25,7 +25,8 @@ SELECT
 FROM meteo_diario m
 JOIN puntos_monitoreo p ON p.id = m.id_punto
 WHERE m.tipo_dato = 'historico'
-  AND p.pais IN ('ARG', 'BRA', 'URY')
+  AND p.activo = TRUE
+  AND p.pais IN ('ARG', 'BRA', 'CHL', 'URY')
   AND m.fecha = (
       SELECT MAX(fecha) FROM meteo_diario
       WHERE id_punto = m.id_punto AND tipo_dato = 'historico'
@@ -56,7 +57,7 @@ SELECT
 FROM meteo_diario m
 JOIN puntos_monitoreo p ON p.id = m.id_punto
 WHERE p.activo = TRUE
-  AND p.pais IN ('ARG', 'BRA', 'URY')
+  AND p.pais IN ('ARG', 'BRA', 'CHL', 'URY')
 ORDER BY p.nombre, m.fecha;
 
 -- ── Vista 3: v_focos_resumen_diario ───────────────────────────────────────────
@@ -90,7 +91,8 @@ SELECT
 FROM calidad_aire_diario c
 JOIN puntos_monitoreo p ON p.id = c.id_punto
 WHERE c.supera_oms_pm10 = TRUE
-  AND p.pais IN ('ARG', 'BRA', 'URY')
+  AND p.activo = TRUE
+  AND p.pais IN ('ARG', 'BRA', 'CHL', 'URY')
 ORDER BY c.fecha DESC, c.pm10_media DESC;
 
 -- ── Vista 5: v_dias_criticos ──────────────────────────────────────────────────
@@ -107,7 +109,8 @@ FROM meteo_diario m
 JOIN puntos_monitoreo p ON p.id = m.id_punto
 WHERE m.nivel_riesgo IN ('alto', 'muy_alto')
   AND m.tipo_dato = 'historico'
-  AND p.pais IN ('ARG', 'BRA', 'URY')
+  AND p.activo = TRUE
+  AND p.pais IN ('ARG', 'BRA', 'CHL', 'URY')
 GROUP BY m.fecha
 ORDER BY m.fecha DESC;
 
@@ -127,7 +130,8 @@ SELECT
 FROM meteo_diario m
 JOIN puntos_monitoreo p ON p.id = m.id_punto
 WHERE m.tipo_dato = 'forecast'
-  AND p.pais IN ('ARG', 'BRA', 'URY')
+  AND p.activo = TRUE
+  AND p.pais IN ('ARG', 'BRA', 'CHL', 'URY')
   AND m.fecha >= CURRENT_DATE
 ORDER BY p.nombre, m.fecha;
 
@@ -145,7 +149,8 @@ SELECT
 FROM meteo_diario m
 JOIN puntos_monitoreo p ON p.id = m.id_punto
 WHERE m.tipo_dato = 'historico'
-  AND p.pais IN ('ARG', 'BRA', 'URY')
+  AND p.activo = TRUE
+  AND p.pais IN ('ARG', 'BRA', 'CHL', 'URY')
 GROUP BY p.pais, DATE_TRUNC('month', m.fecha)
 ORDER BY p.pais, mes;
 
@@ -162,7 +167,7 @@ SELECT
     ROUND(MAX(potencia_radiativa)::NUMERIC, 2) AS frp_maximo,
     SUM(CASE WHEN confianza_num = 3 THEN 1 ELSE 0 END) AS focos_alta_confianza
 FROM focos_calor
-WHERE pais IN ('ARG', 'BRA', 'URY')
+WHERE pais IN ('ARG', 'BRA', 'CHL', 'URY')
 GROUP BY pais, DATE_TRUNC('month', fecha_adq)
 ORDER BY pais, mes;
 

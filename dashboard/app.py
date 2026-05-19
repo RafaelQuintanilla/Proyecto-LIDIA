@@ -1533,7 +1533,7 @@ elif pagina == "Fuentes y Datos Crudos":
         total_firms = sum(1 for f in firms_files)
         st.metric("Archivos CSV descargados", total_firms)
         st.metric("Años cubiertos", "2018–2024")
-        st.metric("Países cubiertos", "3")
+        st.metric("Países cubiertos", "4")
 
     st.markdown("**Columnas del dato crudo:**")
     col_firms = {
@@ -1587,7 +1587,7 @@ elif pagina == "Fuentes y Datos Crudos":
     with col2:
         meteo_files = _glob.glob(str(RAW / "meteo" / "*.csv"))
         st.metric("Archivos CSV descargados", len(meteo_files))
-        st.metric("Ciudades/puntos", "11")
+        st.metric("Ciudades/puntos", "36")
         st.metric("Años cubiertos", "2018–2024")
 
     st.markdown("**Columnas del dato crudo:**")

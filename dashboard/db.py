@@ -483,6 +483,7 @@ def cargar_cams() -> pd.DataFrame:
                 FROM calidad_aire_diario c
                 JOIN puntos_monitoreo p ON p.id = c.id_punto
                 WHERE p.pais IN ({SQL_SCOPE_PAISES})
+                  AND p.activo = TRUE
                 ORDER BY c.fecha DESC
             """)
             df["fecha"] = pd.to_datetime(df["fecha"])

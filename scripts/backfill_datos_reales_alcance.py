@@ -122,19 +122,34 @@ def asegurar_dimensiones_postgres() -> bool:
                     (iso3, meta["codigo_iso2"], meta["nombre"]),
                 )
 
+            cur.execute("UPDATE puntos_monitoreo SET activo = FALSE")
             for nombre, info in PUNTOS_METEO_SA.items():
                 region = _region_descriptiva(nombre, info["pais"])
+                cur.execute(
+                    "SELECT id FROM puntos_monitoreo WHERE nombre = %s ORDER BY id LIMIT 1",
+                    (nombre,),
+                )
+                row = cur.fetchone()
+                if row:
+                    cur.execute(
+                        """
+                        UPDATE puntos_monitoreo
+                        SET pais = %s,
+                            region = %s,
+                            latitud = %s,
+                            longitud = %s,
+                            activo = TRUE
+                        WHERE id = %s
+                        """,
+                        (info["pais"], region, info["lat"], info["lon"], row[0]),
+                    )
+                    continue
+
                 cur.execute(
                     """
                     INSERT INTO puntos_monitoreo
                         (nombre, pais, region, latitud, longitud, activo)
                     VALUES (%s, %s, %s, %s, %s, TRUE)
-                    ON CONFLICT (nombre) DO UPDATE SET
-                        pais = EXCLUDED.pais,
-                        region = EXCLUDED.region,
-                        latitud = EXCLUDED.latitud,
-                        longitud = EXCLUDED.longitud,
-                        activo = TRUE
                     """,
                     (nombre, info["pais"], region, info["lat"], info["lon"]),
                 )
