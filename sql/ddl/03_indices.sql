@@ -13,5 +13,6 @@ CREATE INDEX IF NOT EXISTS idx_precipitacion_ubicacion_fecha ON dw.dim_precipita
 CREATE INDEX IF NOT EXISTS idx_precipitacion_fecha_ubicacion ON dw.dim_precipitacion (fecha_id, ubicacion_id);
 CREATE INDEX IF NOT EXISTS idx_cobertura_ubicacion_anio ON dw.dim_cobertura_vegetal (ubicacion_id, anio);
 CREATE INDEX IF NOT EXISTS idx_cobertura_anio_ubicacion ON dw.dim_cobertura_vegetal (anio, ubicacion_id);
+CREATE INDEX IF NOT EXISTS idx_calidad_aire_ubicacion_fecha ON dw.dim_calidad_aire (ubicacion_id, fecha_id);
 CREATE INDEX IF NOT EXISTS idx_etl_fuente_inicio ON audit.etl_runs (fuente, iniciado_en DESC);
 CREATE INDEX IF NOT EXISTS idx_cdc_run_tipo ON audit.cdc_eventos (run_id, tipo_evento);

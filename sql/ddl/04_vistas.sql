@@ -47,7 +47,7 @@ GROUP BY u.pais_codigo, COALESCE(c.descripcion_cobertura, 'Sin dato MODIS');
 CREATE OR REPLACE VIEW dw.v_calidad_aire_alta_actividad AS
 SELECT u.pais_codigo, fch.fecha, COUNT(*)::bigint AS focos,
        ROUND(AVG(a.pm25), 3) AS pm25, ROUND(AVG(a.pm10), 3) AS pm10,
-       CASE WHEN COUNT(a.calidad_aire_id) = 0 THEN 'Pendiente de fuente validada' ELSE 'Disponible' END AS estado_dato
+       CASE WHEN COUNT(a.calidad_aire_id) = 0 THEN 'Pendiente CAMS/Open-Meteo Air Quality' ELSE 'Disponible' END AS estado_dato
 FROM dw.fact_incendio i
 JOIN dw.dim_fecha fch ON fch.fecha_id = i.fecha_id
 JOIN dw.dim_ubicacion u ON u.ubicacion_id = i.ubicacion_id

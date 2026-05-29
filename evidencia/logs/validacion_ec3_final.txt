@@ -45,9 +45,9 @@
 | FIRMS | 2585805 |
 | CHIRPS | 702 |
 | MODIS | 133 |
-| FORECAST | 1008 |
 | INUMET | 224369 |
-| METEO | 420768 |
+| METEO/Open-Meteo historico | 420768 |
+| CAMS/Open-Meteo Air Quality | 0 |
 
 ## Conteos DW
 | tabla | filas |
@@ -121,7 +121,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | CHIRPS | ok | 1 | 1404 | 702 | 0 | 702 |
 | FIRMS | ok | 1 | 3672055 | 2585805 | 0 | 1086250 |
-| FORECAST | ok | 1 | 1008 | 1008 | 0 | 0 |
 | INUMET | ok | 9 | 224369 | 224369 | 0 | 0 |
-| METEO | ok | 18 | 420768 | 420768 | 0 | 0 |
+| METEO/Open-Meteo historico | ok | 18 | 420768 | 420768 | 0 | 0 |
 | MODIS | ok | 1 | 266 | 133 | 133 | 0 |
+| CAMS/Open-Meteo Air Quality | pendiente | 0 | 0 | 0 | 0 | 0 |

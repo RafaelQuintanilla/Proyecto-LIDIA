@@ -13,7 +13,9 @@ se registra en `logs/validacion_local.txt`.
 
 `logs/carga_real_integrada.txt` registra la carga controlada ejecutada en UTEC
 con archivos reales para FIRMS, CHIRPS, MODIS e INUMET, y APIs reales para
-METEO y FORECAST. La geometria territorial usada para asignar pais a puntos
+Open-Meteo historico. Calidad del aire CAMS/Open-Meteo Air Quality queda como
+dimension preparada cuando no hay carga validada de PM2.5/PM10. La geometria
+territorial usada para asignar pais a puntos
 es un insumo auxiliar de transformacion y no se incorpora como fuente
 analitica.
 

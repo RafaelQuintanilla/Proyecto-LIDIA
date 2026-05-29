@@ -17,7 +17,8 @@ DATA_ROOT = Path(os.getenv("LIDIA_DATA_ROOT", str(ROOT / "data"))).expanduser()
 PROCESSED_DIR = DATA_ROOT / "processed"
 LOG_DIR = Path(os.getenv("LIDIA_LOG_DIR", str(ROOT / "logs"))).expanduser()
 
-FUENTES_VALIDAS = ("INUMET", "FIRMS", "CHIRPS", "FORECAST", "METEO", "MODIS")
+# METEO es la etiqueta tecnica interna para Open-Meteo historico.
+FUENTES_VALIDAS = ("INUMET", "FIRMS", "CHIRPS", "METEO", "MODIS", "CAMS")
 PAISES = {
     "URY": {"nombre": "Uruguay", "iso2": "UY"},
     "ARG": {"nombre": "Argentina", "iso2": "AR"},
@@ -41,17 +42,19 @@ FIRMS_MAP_KEY = os.getenv("FIRMS_MAP_KEY", "")
 SOURCE_FILES = {
     "FIRMS": os.getenv("FIRMS_FILE", ""),
     "METEO": os.getenv("METEO_FILE", ""),
-    "FORECAST": os.getenv("FORECAST_FILE", ""),
     "CHIRPS": os.getenv("CHIRPS_FILE", ""),
     "MODIS": os.getenv("MODIS_FILE", ""),
     "INUMET": os.getenv("INUMET_FILE", ""),
+    "CAMS": os.getenv("CAMS_FILE", os.getenv("AIR_QUALITY_FILE", "")),
 }
 FIRMS_COUNTRY_BOUNDARIES_FILE = os.getenv("FIRMS_COUNTRY_BOUNDARIES_FILE", "")
 METEO_API_URL = os.getenv("METEO_API_URL", "https://archive-api.open-meteo.com/v1/archive")
 METEO_START_DATE = os.getenv("METEO_START_DATE", "2018-01-01")
 METEO_END_DATE = os.getenv("METEO_END_DATE", "2025-12-31")
-FORECAST_API_URL = os.getenv("FORECAST_API_URL", "https://api.open-meteo.com/v1/forecast")
-FORECAST_DAYS = int(os.getenv("FORECAST_DAYS", "7"))
+CAMS_AIR_QUALITY_API_URL = os.getenv(
+    "CAMS_AIR_QUALITY_API_URL",
+    "https://air-quality-api.open-meteo.com/v1/air-quality",
+)
 INUMET_TEMPERATURA_FILE = os.getenv("INUMET_TEMPERATURA_FILE", "")
 INUMET_HUMEDAD_FILE = os.getenv("INUMET_HUMEDAD_FILE", "")
 

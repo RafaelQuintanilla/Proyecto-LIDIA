@@ -10,7 +10,7 @@ from etl.load.postgres import load_staging
 from etl.transform.normalize import normalize
 from etl.utils.logger import evento, setup_logger
 
-SOURCES = ("FIRMS", "METEO", "FORECAST", "CHIRPS", "MODIS", "INUMET")
+SOURCES = ("FIRMS", "METEO", "CAMS", "CHIRPS", "MODIS", "INUMET")
 logger = setup_logger("lidia.etl")
 
 

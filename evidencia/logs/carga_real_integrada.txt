@@ -15,9 +15,8 @@ Fuentes reales cargadas
   brightness fue cargado exclusivamente como brillo_termico.
 - CHIRPS (CSV): leidas 1.404; insertadas 702; rechazadas 702 fuera de alcance.
   Por pais cargado: ARG 312, BRA 390. El archivo real no contiene filas URY.
-- METEO (API, historico horario 2018-2025): leidas e insertadas 420.768; rechazadas 0.
-- FORECAST (API, snapshot operativo 2026-05-27 a 2026-06-02): leidas e insertadas 1.008; rechazadas 0.
-  Se conserva identificado como FORECAST y no se interpreta como historico 2018-2025.
+- Open-Meteo historico (API, etiqueta tecnica METEO, 2018-2025): leidas e insertadas 420.768; rechazadas 0.
+- CAMS/Open-Meteo Air Quality: dimension preparada para PM2.5/PM10; sin carga real validada en esta corrida.
 - MODIS (CSV real anual): leidas 266; staging/dimension consolidados en 133 claves
   naturales URY por anio y ubicacion; rechazadas 0. Duplicados del archivo quedaron trazados
   como actualizaciones CDC.
@@ -27,7 +26,8 @@ Fuentes reales cargadas
 Conteos finales
 - staging.stg_firms: 2.585.805
 - staging.stg_chirps: 702
-- staging.stg_meteo: METEO 420.768; FORECAST 1.008; INUMET 224.369
+- staging.stg_meteo: METEO/Open-Meteo historico 420.768; INUMET 224.369
+- staging.stg_calidad_aire: 0 en esta corrida, pendiente de archivo/API validado CAMS/Open-Meteo Air Quality
 - staging.stg_modis: 133
 - dw.fact_incendio: 2.585.805
 - dw.dim_clima: 646.145
@@ -43,7 +43,7 @@ Vistas del dashboard verificadas
 
 Validacion ejecutada
 - python -m compileall -q .: OK
-- python -m pytest -q tests: OK, 15 passed
+- python -m pytest -q tests: OK, 18 passed
 - python /app/streamlit/app.py: OK, sin error SQL; los avisos observados corresponden al modo bare de Streamlit.
 - grep exacto solicitado sobre "." fue terminado por el entorno al recorrer datos raw voluminosos (returncode -9).
 - grep equivalente sobre codigo/documentacion excluyendo data/ termino sin coincidencias (returncode 1).
@@ -56,7 +56,8 @@ Incidencias resueltas durante la corrida
 
 Limitaciones documentadas
 - La fuente FIRMS se clasifica territorialmente por coordenadas y no trae pais_codigo original.
-- FORECAST es un snapshot operativo posterior al periodo historico; permanece separado por fuente.
+- El pronostico meteorologico fue retirado como fuente del proyecto; no forma parte del diseno EC1/EC2.
+- Calidad del aire permanece como dimension preparada, sin PM2.5/PM10 inventados.
 
 CORRECCION DE INTEGRACION ESPACIAL
 Fecha de ejecucion: 2026-05-27
@@ -65,7 +66,7 @@ Regla implementada
 - Metodo: nearest neighbor mediante `dw.distancia_haversine_km`, sin interpolar valores.
 - Restriccion geografica: candidato y foco deben pertenecer al mismo pais.
 - Clima: misma fecha; se toma el punto mas cercano y la observacion horaria mas cercana
-  al horario de adquisicion FIRMS. Umbral METEO/FORECAST: 100 km; INUMET: 150 km.
+  al horario de adquisicion FIRMS. Umbral Open-Meteo historico: 100 km; INUMET: 150 km.
 - CHIRPS: mismo anio y mes, punto mas cercano dentro de 100 km.
 - MODIS: mismo anio, punto mas cercano dentro de 100 km.
 - Cuando no existe candidato valido el identificador permanece NULL.
@@ -79,7 +80,7 @@ Antes de asociar
 Despues de asociar
 - dw.fact_incendio: 2.585.805
 - clima_id no nulos: 23.753; sin asociar: 2.562.052
-  - METEO: 21.071, distancia maxima 99,993 km
+  - Open-Meteo historico: 21.071, distancia maxima 99,993 km
   - INUMET: 2.682, distancia maxima 149,996 km
 - precipitacion_id no nulos: 47.576; sin asociar: 2.538.229;
   distancia maxima 99,998 km
@@ -97,5 +98,5 @@ Verificaciones de integridad
 
 Validacion posterior a la correccion
 - python -m compileall -q .: OK
-- python -m pytest -q tests: OK, 16 passed
+- python -m pytest -q tests: OK, 18 passed
 - python /app/streamlit/app.py: OK, sin error SQL; los avisos corresponden al modo bare.

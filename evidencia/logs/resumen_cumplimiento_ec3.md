@@ -3,7 +3,7 @@
 | requisito EC3 | estado | evidencia | observacion |
 | --- | --- | --- | --- |
 | Modelo PostgreSQL staging/dw/audit | OK | validacion_ec3_final.txt | Esquemas, tablas, vistas y conteos verificados. |
-| Carga real seis fuentes permitidas | OK | validacion_ec3_final.txt | FIRMS, CHIRPS, METEO, FORECAST, MODIS e INUMET con conteos reales. |
+| Carga real fuentes permitidas | PARCIAL | validacion_ec3_final.txt | FIRMS, CHIRPS, Open-Meteo historico, MODIS e INUMET con conteos reales; CAMS/Open-Meteo Air Quality queda preparado y pendiente de carga validada. |
 | Calidad de datos y restricciones | OK | validacion_ec3_final.txt | Duplicados, rangos y paises fuera de alcance en cero para datos aceptados. |
 | Asociacion espacial ambiental | OK | validacion_ec3_final.txt | Nearest neighbor Haversine auditado; sin violaciones de reglas. |
 | CDC | OK | validacion_cdc.txt | Tipos alta, modificacion, sin_cambio y rechazo presentes; si faltaba alguno se completo con corrida test auditada. |

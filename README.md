@@ -3,11 +3,13 @@
 Implementacion reproducible para analizar incendios forestales y sus
 condiciones ambientales en **Uruguay, Argentina y Brasil** durante
 **2018-2025**. El aporte utiliza exclusivamente las fuentes declaradas del
-proyecto: **INUMET, FIRMS, CHIRPS, FORECAST, METEO y MODIS**.
+proyecto: **NASA FIRMS, Open-Meteo historico, CAMS/Open-Meteo Air Quality,
+CHIRPS, MODIS e INUMET**.
 
 No se versionan datasets crudos, shapefiles, parquets, claves ni contrasenas.
-La dimension de calidad del aire se mantiene nullable y pendiente de carga
-hasta disponer de una fuente aprobada y trazable del proyecto. La base
+La dimension de calidad del aire se mantiene nullable y preparada para
+CAMS/Open-Meteo Air Quality; no se inventan PM2.5 ni PM10 cuando no hay carga
+real validada. La base
 PostgreSQL recomendada para una instalacion limpia es `proyecto_lidia`.
 En servidores que inyectan una base compartida, `LIDIA_POSTGRES_DB` selecciona
 explicitamente el Data Warehouse de este proyecto.
@@ -33,7 +35,8 @@ python -m pip install -r requirements-utec.txt
 ```
 
 Las variables `*_FILE` apuntan a archivos locales CSV/Parquet de las fuentes
-reales. `INUMET` se valida solo para Uruguay. En FIRMS, `brillo_termico`
+reales. `METEO` es la etiqueta tecnica interna de Open-Meteo historico e
+`INUMET` se valida solo para Uruguay. En FIRMS, `brillo_termico`
 representa brillo termico satelital, nunca temperatura del aire.
 
 ## Base De Datos
@@ -61,6 +64,7 @@ INUMET. `audit` registra corridas y eventos CDC.
 ```bash
 python -m etl.main --source FIRMS
 python -m etl.main --source METEO
+python -m etl.main --source CAMS
 python -m etl.load.real_integrated
 python -m etl.main --source ALL
 ```
@@ -122,6 +126,6 @@ criticas. PostGIS agrega geometria de FIRMS de forma opcional y separada.
 
 - Ejecutar DDL y ETL contra la instancia UTEC con variables locales validas.
 - Registrar conteos reales de una segunda corrida y capturas del dashboard.
-- Cargar calidad del aire solo si el equipo confirma una fuente permitida.
+- Cargar calidad del aire CAMS/Open-Meteo Air Quality con archivo/API validado.
 - Validar con el equipo los umbrales documentados del enlace nearest neighbor:
-  100 km para METEO, FORECAST, CHIRPS y MODIS, y 150 km para INUMET.
+  100 km para Open-Meteo historico, CHIRPS, MODIS y calidad del aire, y 150 km para INUMET.

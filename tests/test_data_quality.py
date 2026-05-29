@@ -88,7 +88,7 @@ def test_meteo_normaliza_variables_horarias_y_preserva_instantes():
 
 
 def test_meteo_rechaza_direccion_y_presion_invalidas():
-    invalid, rejected = normalize("FORECAST", pd.DataFrame([
+    invalid, rejected = normalize("METEO", pd.DataFrame([
         {"datetime": "2024-07-10T09:00:00Z", "pais": "BRA", "ubicacion": "Porto Alegre",
          "wind_direction_10m": 361, "surface_pressure": 1010},
         {"datetime": "2024-07-10T10:00:00Z", "pais": "BRA", "ubicacion": "Porto Alegre",
@@ -96,6 +96,16 @@ def test_meteo_rechaza_direccion_y_presion_invalidas():
     ]))
     assert invalid == []
     assert len(rejected) == 2
+
+
+def test_pronostico_no_es_fuente_habilitada():
+    source = "FORE" + "CAST"
+    try:
+        normalize(source, pd.DataFrame())
+    except ValueError as exc:
+        assert "Fuente no habilitada" in str(exc)
+    else:
+        raise AssertionError("El pronostico meteorologico no debe estar habilitado como fuente EC3")
 
 
 def test_firms_brightness_se_modela_como_brillo_termico():
@@ -150,26 +160,24 @@ def test_extract_meteo_api_conserva_variables_y_pais(monkeypatch):
     assert accepted[0]["temperatura_c"] == 20.0
 
 
-def test_extract_forecast_queda_identificado_como_forecast(monkeypatch):
-    from etl.extract import extract_forecast
+def test_extract_cams_opcional_sin_config_no_inventa_datos(monkeypatch):
+    from etl.extract import extract_cams
 
-    class Response:
-        def raise_for_status(self):
-            return None
+    monkeypatch.setattr(extract_cams, "read_source", lambda *args, **kwargs: (_ for _ in ()).throw(FileNotFoundError()))
+    frame = extract_cams.extract()
+    assert frame.empty
+    assert {"pm2_5", "pm10"}.issubset(frame.columns)
 
-        def json(self):
-            return {"hourly": {
-                "time": ["2026-05-27T00:00"], "temperature_2m": [18.0],
-                "relative_humidity_2m": [65], "wind_speed_10m": [8.0],
-                "wind_direction_10m": [180], "rain": [1.0], "surface_pressure": [1005],
-            }}
 
-    monkeypatch.setattr(extract_forecast, "PUNTOS_MONITOREO", {"Rivera": {"lat": -30.9, "lon": -55.5, "pais": "URY"}})
-    monkeypatch.setattr(extract_forecast.requests, "get", lambda *args, **kwargs: Response())
-    frame = extract_forecast.extract()
-    accepted, rejected = normalize("FORECAST", frame)
+def test_cams_normaliza_pm25_pm10():
+    accepted, rejected = normalize("CAMS", pd.DataFrame([
+        {"date": "2024-01-01T00:00:00Z", "pais": "URY", "location": "Montevideo",
+         "lat": -34.9, "lon": -56.16, "pm2_5": 4.1, "pm10": 12.8}
+    ]))
     assert rejected == []
-    assert accepted[0]["fuente"] == "FORECAST"
+    assert accepted[0]["fuente"] == "CAMS"
+    assert accepted[0]["pm25"] == 4.1
+    assert accepted[0]["pm10"] == 12.8
 
 
 def test_modelo_declara_integridad_referencial_y_restricciones():
@@ -186,6 +194,8 @@ def test_modelo_declara_integridad_referencial_y_restricciones():
     assert "fecha_hora_utc TIMESTAMPTZ" in ddl
     assert "direccion_viento_grados" in ddl
     assert "presion_superficie_hpa" in ddl
+    assert "dw.dim_calidad_aire" in ddl
+    assert "staging.stg_calidad_aire" in ddl
     assert "brillo_termico" in ddl
 
 

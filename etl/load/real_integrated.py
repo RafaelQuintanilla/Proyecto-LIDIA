@@ -143,7 +143,7 @@ def _load_regular(source: str, frame: pd.DataFrame) -> dict:
 def run_integrated() -> list[dict]:
     results = [load_real_firms(), load_real_chirps()]
     results.append(_extract_and_load("METEO", bulk=True))
-    results.append(_extract_and_load("FORECAST", bulk=True))
+    results.append(_extract_and_load("CAMS"))
     results.append(_extract_and_load("MODIS"))
     results.append(_extract_and_load("INUMET", bulk=True))
     results.append({"asociacion_espacial": associate_environmental_dimensions()})

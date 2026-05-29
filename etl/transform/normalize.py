@@ -108,7 +108,7 @@ def _normalize_record(source: str, raw: dict[str, Any]) -> dict[str, Any]:
             "instrumento": _value(raw, "instrumento", "instrument"),
             "dia_noche": daynight,
         }
-    elif source in {"METEO", "FORECAST", "INUMET"}:
+    elif source in {"METEO", "INUMET"}:
         fecha_hora_utc = _datetime_utc(
             _value(raw, "fecha_hora_utc", "time", "datetime", "fecha_hora", "fecha", "date")
         )
@@ -155,7 +155,7 @@ def _normalize_record(source: str, raw: dict[str, Any]) -> dict[str, Any]:
             "longitud": _number(_value(raw, "longitud", "longitude", "lon")),
             "precipitacion_mm": precip,
         }
-    else:  # MODIS
+    elif source == "MODIS":
         year = _value(raw, "anio", "year")
         location = str(_value(raw, "ubicacion", "punto") or "")
         try:
@@ -171,6 +171,28 @@ def _normalize_record(source: str, raw: dict[str, Any]) -> dict[str, Any]:
             "longitud": _number(_value(raw, "longitud", "longitude", "lon")),
             "codigo_cobertura": _value(raw, "codigo_cobertura", "valor", "lc_type1"),
             "descripcion_cobertura": _value(raw, "descripcion_cobertura", "lc_descripcion"),
+        }
+    else:  # CAMS / Open-Meteo Air Quality
+        fecha_hora_utc = _datetime_utc(
+            _value(raw, "fecha_hora_utc", "time", "datetime", "fecha_hora", "date", "fecha")
+        )
+        fecha = _date(fecha_hora_utc)
+        location = str(_value(raw, "ubicacion", "location", "punto") or "")
+        pm25 = _number(_value(raw, "pm25", "pm2_5", "pm2.5"))
+        pm10 = _number(_value(raw, "pm10"))
+        if not fecha or not location:
+            raise ValueError("CAMS requiere fecha y ubicacion")
+        if pm25 is None and pm10 is None:
+            raise ValueError("CAMS requiere pm25 o pm10")
+        if (pm25 is not None and pm25 < 0) or (pm10 is not None and pm10 < 0):
+            raise ValueError("CAMS: particulas no pueden ser negativas")
+        natural = "|".join(["CAMS", fecha_hora_utc or fecha, country, location])
+        record = {
+            "natural_key": natural, "fecha": fecha, "fecha_hora_utc": fecha_hora_utc,
+            "pais_codigo": country, "ubicacion": location,
+            "latitud": _number(_value(raw, "latitud", "latitude", "lat")),
+            "longitud": _number(_value(raw, "longitud", "longitude", "lon")),
+            "pm25": pm25, "pm10": pm10, "fuente": "CAMS",
         }
     record["record_hash"] = _digest(record)
     record["raw_payload"] = _jsonsafe(raw)

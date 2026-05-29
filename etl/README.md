@@ -1,8 +1,10 @@
 # ETL
 
-El pipeline acepta exclusivamente `INUMET`, `FIRMS`, `CHIRPS`, `FORECAST`,
-`METEO` y `MODIS`. FIRMS, CHIRPS y una exportacion MODIS pueden configurarse
-como archivos reales locales; METEO y FORECAST se obtienen mediante API.
+El pipeline acepta exclusivamente NASA FIRMS, Open-Meteo historico, CAMS/Open-Meteo
+Air Quality, CHIRPS, MODIS e INUMET. En codigo, `METEO` es la etiqueta tecnica
+interna de Open-Meteo historico y `CAMS` representa calidad del aire PM2.5/PM10.
+FIRMS, CHIRPS, CAMS y una exportacion MODIS pueden configurarse como archivos
+reales locales; Open-Meteo historico se obtiene mediante API.
 Los datos no se versionan.
 
 ```bash
@@ -38,17 +40,18 @@ CHIRPS conserva sus coordenadas de punto para construir
 mismo pais y mes dentro del umbral configurado. Los registros fuera del alcance
 se persisten como rechazos.
 
-`METEO` consume datos historicos horarios 2018-2025 desde su API; `FORECAST`
-consume el horizonte meteorologico operativo y queda identificado como tal en
-`staging.stg_meteo`. `MODIS` se carga desde una exportacion anual real
-configurada en `MODIS_FILE`. `INUMET` une los CSV horarios reales configurados
-en `INUMET_TEMPERATURA_FILE` e `INUMET_HUMEDAD_FILE`, y siempre se restringe
-a Uruguay.
+`METEO` consume datos historicos horarios 2018-2025 desde Open-Meteo Archive
+API. `CAMS`/Open-Meteo Air Quality queda preparado para PM2.5 y PM10; si no hay
+archivo validado configurado, el extractor devuelve un lote vacio y no inventa
+datos. `MODIS` se carga desde una exportacion anual real configurada en
+`MODIS_FILE`. `INUMET` une los CSV horarios reales configurados en
+`INUMET_TEMPERATURA_FILE` e `INUMET_HUMEDAD_FILE`, y siempre se restringe a
+Uruguay.
 
 Finalizada la ingesta, `associate_environmental_dimensions()` vincula cada
 foco FIRMS con el vecino ambiental mas cercano dentro del mismo pais mediante
 distancia Haversine. La regla temporal es misma fecha para clima (hora mas
 cercana al horario FIRMS), mismo anio/mes para CHIRPS y mismo anio para MODIS.
 Los umbrales quedan explicitados en `SPATIAL_THRESHOLDS_KM`: 100 km para
-`METEO`, `FORECAST`, `CHIRPS` y `MODIS`, y 150 km para `INUMET`. Si no existe
+`METEO`, `CHIRPS`, `MODIS` y `CAMS`, y 150 km para `INUMET`. Si no existe
 candidato dentro de la regla, la clave foranea permanece nula.

@@ -10,7 +10,7 @@ db.rechazos_etl.aggregate([
 ]);
 
 db.raw_payloads.find(
-  {fuente: {$in: ["INUMET", "FIRMS", "CHIRPS", "FORECAST", "METEO", "MODIS"]}},
+  {fuente: {$in: ["INUMET", "FIRMS", "CHIRPS", "METEO", "MODIS", "CAMS"]}},
   {fuente: 1, registrado_en: 1, payload: 1}
 ).sort({registrado_en: -1}).limit(10);
 

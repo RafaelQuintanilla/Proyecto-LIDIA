@@ -13,19 +13,19 @@ from config.settings import PG_CONFIG
 
 SPATIAL_THRESHOLDS_KM = {
     "METEO": 100.0,
-    "FORECAST": 100.0,
     "INUMET": 150.0,
     "CHIRPS": 100.0,
     "MODIS": 100.0,
+    "CAMS": 100.0,
 }
 
 TABLES = {
     "FIRMS": ("stg_firms", ["record_hash", "natural_key", "fecha_adq", "hora_adq_hhmm", "latitud", "longitud", "pais_codigo", "frp_mw", "brillo_termico", "confianza", "satelite", "instrumento", "dia_noche", "raw_payload"]),
     "METEO": ("stg_meteo", ["record_hash", "natural_key", "fuente", "fecha", "fecha_hora_utc", "pais_codigo", "ubicacion", "departamento", "latitud", "longitud", "temperatura_c", "humedad_pct", "viento_kmh", "direccion_viento_grados", "presion_superficie_hpa", "precipitacion_mm", "raw_payload"]),
-    "FORECAST": ("stg_meteo", ["record_hash", "natural_key", "fuente", "fecha", "fecha_hora_utc", "pais_codigo", "ubicacion", "departamento", "latitud", "longitud", "temperatura_c", "humedad_pct", "viento_kmh", "direccion_viento_grados", "presion_superficie_hpa", "precipitacion_mm", "raw_payload"]),
     "INUMET": ("stg_meteo", ["record_hash", "natural_key", "fuente", "fecha", "fecha_hora_utc", "pais_codigo", "ubicacion", "departamento", "latitud", "longitud", "temperatura_c", "humedad_pct", "viento_kmh", "direccion_viento_grados", "presion_superficie_hpa", "precipitacion_mm", "raw_payload"]),
     "CHIRPS": ("stg_chirps", ["record_hash", "natural_key", "fecha", "pais_codigo", "ubicacion", "latitud", "longitud", "precipitacion_mm", "raw_payload"]),
     "MODIS": ("stg_modis", ["record_hash", "natural_key", "anio", "pais_codigo", "ubicacion", "latitud", "longitud", "codigo_cobertura", "descripcion_cobertura", "raw_payload"]),
+    "CAMS": ("stg_calidad_aire", ["record_hash", "natural_key", "fecha", "fecha_hora_utc", "pais_codigo", "ubicacion", "latitud", "longitud", "pm25", "pm10", "fuente", "raw_payload"]),
 }
 
 
@@ -113,7 +113,7 @@ def _promote(cur, source: str) -> None:
             JOIN dw.dim_ubicacion u ON u.pais_codigo=s.pais_codigo AND u.latitud=s.latitud AND u.longitud=s.longitud
             ON CONFLICT (natural_key) DO UPDATE SET record_hash=EXCLUDED.record_hash, frp_mw=EXCLUDED.frp_mw,
               confianza=EXCLUDED.confianza, brillo_termico=EXCLUDED.brillo_termico, actualizado_en=NOW()""")
-    elif source in {"METEO", "FORECAST", "INUMET"}:
+    elif source in {"METEO", "INUMET"}:
         cur.execute("""INSERT INTO dw.dim_fecha (fecha, anio, mes, trimestre)
             SELECT DISTINCT fecha, EXTRACT(YEAR FROM fecha), EXTRACT(MONTH FROM fecha), EXTRACT(QUARTER FROM fecha)
             FROM staging.stg_meteo WHERE fuente=%s ON CONFLICT (fecha) DO NOTHING""", (source,))
@@ -179,6 +179,30 @@ def _promote(cur, source: str) -> None:
              AND u.latitud=s.latitud AND u.longitud=s.longitud
             WHERE s.latitud IS NOT NULL AND s.longitud IS NOT NULL
             ON CONFLICT (anio,ubicacion_id) DO UPDATE SET codigo_cobertura=EXCLUDED.codigo_cobertura, descripcion_cobertura=EXCLUDED.descripcion_cobertura""")
+    elif source == "CAMS":
+        cur.execute("""INSERT INTO dw.dim_fecha (fecha, anio, mes, trimestre)
+            SELECT DISTINCT fecha, EXTRACT(YEAR FROM fecha), EXTRACT(MONTH FROM fecha), EXTRACT(QUARTER FROM fecha)
+            FROM staging.stg_calidad_aire ON CONFLICT (fecha) DO NOTHING""")
+        cur.execute("""INSERT INTO dw.dim_ubicacion
+            (pais_codigo,pais_nombre,ubicacion,latitud,longitud)
+            SELECT DISTINCT pais_codigo,
+                   CASE pais_codigo WHEN 'URY' THEN 'Uruguay' WHEN 'ARG' THEN 'Argentina' ELSE 'Brasil' END,
+                   ubicacion, latitud, longitud
+            FROM staging.stg_calidad_aire
+            WHERE latitud IS NOT NULL AND longitud IS NOT NULL
+            ON CONFLICT (pais_codigo,latitud,longitud) DO UPDATE
+            SET ubicacion=COALESCE(dw.dim_ubicacion.ubicacion, EXCLUDED.ubicacion)""")
+        cur.execute("""INSERT INTO dw.dim_calidad_aire (fecha_id,ubicacion_id,pm25,pm10,fuente,observacion)
+            SELECT d.fecha_id,u.ubicacion_id,s.pm25,s.pm10,'CAMS',
+                   'CAMS/Open-Meteo Air Quality normalizado por Proyecto LIDIA'
+            FROM staging.stg_calidad_aire s
+            JOIN dw.dim_fecha d ON d.fecha=s.fecha
+            JOIN dw.dim_ubicacion u ON u.pais_codigo=s.pais_codigo
+             AND u.latitud=s.latitud AND u.longitud=s.longitud
+            WHERE s.latitud IS NOT NULL AND s.longitud IS NOT NULL
+            ON CONFLICT (fecha_id,ubicacion_id) DO UPDATE SET
+              pm25=EXCLUDED.pm25, pm10=EXCLUDED.pm10, fuente=EXCLUDED.fuente,
+              observacion=EXCLUDED.observacion""")
 
 
 def associate_environmental_dimensions() -> dict:
