@@ -6,7 +6,7 @@
         "required": ["run_id", "fuente", "estado", "metricas", "registrado_en"],
         "properties": {
           "run_id": {"bsonType": "string"},
-          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "FORECAST", "METEO", "MODIS"]},
+          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "METEO", "MODIS", "CAMS"]},
           "estado": {"enum": ["ok", "parcial", "error"]},
           "metricas": {"bsonType": "object"},
           "registrado_en": {"bsonType": "date"}
@@ -18,7 +18,7 @@
         "bsonType": "object",
         "required": ["run_id", "fuente", "motivo", "registro", "registrado_en"],
         "properties": {
-          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "FORECAST", "METEO", "MODIS"]},
+          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "METEO", "MODIS", "CAMS"]},
           "motivo": {"bsonType": "string"},
           "registro": {"bsonType": "object"},
           "registrado_en": {"bsonType": "date"}
@@ -31,7 +31,7 @@
         "required": ["run_id", "fuente", "payload", "registrado_en"],
         "properties": {
           "run_id": {"bsonType": "string"},
-          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "FORECAST", "METEO", "MODIS"]},
+          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "METEO", "MODIS", "CAMS"]},
           "payload": {"bsonType": "object"},
           "registrado_en": {"bsonType": "date"}
         }
@@ -43,7 +43,7 @@
         "required": ["run_id", "fuente", "estado", "mensaje", "registrado_en"],
         "properties": {
           "run_id": {"bsonType": "string"},
-          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "FORECAST", "METEO", "MODIS"]},
+          "fuente": {"enum": ["INUMET", "FIRMS", "CHIRPS", "METEO", "MODIS", "CAMS"]},
           "estado": {"enum": ["inicio", "ok", "parcial", "error"]},
           "mensaje": {"bsonType": "string"},
           "registrado_en": {"bsonType": "date"}

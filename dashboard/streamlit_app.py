@@ -133,7 +133,7 @@ with tracking:
                   filas_leidas, filas_insertadas, filas_actualizadas, filas_rechazadas
            FROM dw.v_calidad_pipeline LIMIT 30"""
     )
-    st.info("Calidad del aire queda nula o pendiente cuando no existe un dato EC3 validado.")
+    st.info("Calidad del aire usa CAMS/Open-Meteo Air Quality cuando hay PM2.5/PM10 validado; queda nula si no existe dato compatible.")
     st.dataframe(air, width="stretch", hide_index=True)
     st.subheader("Trazabilidad del pipeline")
     st.dataframe(runs, width="stretch", hide_index=True)

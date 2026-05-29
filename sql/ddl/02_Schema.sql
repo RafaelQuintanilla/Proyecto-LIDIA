@@ -1,11 +1,11 @@
 -- Proyecto LIDIA - modelo estrella EC3, periodo analitico 2018-2025.
 -- Alcance geografico: Uruguay (URY), Argentina (ARG) y Brasil (BRA).
--- Fuentes admitidas: INUMET, FIRMS, CHIRPS, FORECAST, METEO y MODIS.
+-- Fuentes admitidas: NASA FIRMS, Open-Meteo historico, CAMS/Open-Meteo Air Quality, CHIRPS, MODIS e INUMET.
 
 CREATE TABLE IF NOT EXISTS staging.ingesta_metadata (
     ingesta_id BIGSERIAL PRIMARY KEY,
     run_id UUID NOT NULL,
-    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('INUMET','FIRMS','CHIRPS','FORECAST','METEO','MODIS')),
+    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('INUMET','FIRMS','CHIRPS','METEO','MODIS','CAMS')),
     ultima_fecha_procesada DATE,
     filas_leidas INTEGER NOT NULL DEFAULT 0 CHECK (filas_leidas >= 0),
     filas_insertadas INTEGER NOT NULL DEFAULT 0 CHECK (filas_insertadas >= 0),
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS staging.stg_firms (
 CREATE TABLE IF NOT EXISTS staging.stg_meteo (
     record_hash CHAR(64) PRIMARY KEY,
     natural_key VARCHAR(240) NOT NULL UNIQUE,
-    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('METEO','FORECAST','INUMET')),
+    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('METEO','INUMET')),
     fecha DATE NOT NULL,
     fecha_hora_utc TIMESTAMPTZ NOT NULL,
     pais_codigo CHAR(3) NOT NULL CHECK (pais_codigo IN ('URY','ARG','BRA')),
@@ -88,6 +88,22 @@ CREATE TABLE IF NOT EXISTS staging.stg_modis (
     cargado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS staging.stg_calidad_aire (
+    record_hash CHAR(64) PRIMARY KEY,
+    natural_key VARCHAR(240) NOT NULL UNIQUE,
+    fecha DATE NOT NULL,
+    fecha_hora_utc TIMESTAMPTZ,
+    pais_codigo CHAR(3) NOT NULL CHECK (pais_codigo IN ('URY','ARG','BRA')),
+    ubicacion VARCHAR(100) NOT NULL,
+    latitud NUMERIC(9,6) CHECK (latitud BETWEEN -90 AND 90),
+    longitud NUMERIC(9,6) CHECK (longitud BETWEEN -180 AND 180),
+    pm25 NUMERIC(9,3) CHECK (pm25 >= 0),
+    pm10 NUMERIC(9,3) CHECK (pm10 >= 0),
+    fuente VARCHAR(20) NOT NULL DEFAULT 'CAMS' CHECK (fuente = 'CAMS'),
+    raw_payload JSONB,
+    cargado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS dw.dim_fecha (
     fecha_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     fecha DATE NOT NULL UNIQUE,
@@ -123,7 +139,7 @@ CREATE TABLE IF NOT EXISTS dw.dim_clima (
     fecha_id INTEGER NOT NULL REFERENCES dw.dim_fecha(fecha_id),
     ubicacion_id BIGINT NOT NULL REFERENCES dw.dim_ubicacion(ubicacion_id),
     estacion_id BIGINT REFERENCES dw.dim_estacion_meteorologica(estacion_id),
-    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('METEO','FORECAST','INUMET')),
+    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('METEO','INUMET')),
     fecha_hora_utc TIMESTAMPTZ NOT NULL,
     temperatura_c NUMERIC(6,2),
     humedad_pct NUMERIC(6,2) CHECK (humedad_pct BETWEEN 0 AND 100),
@@ -158,11 +174,11 @@ CREATE TABLE IF NOT EXISTS dw.dim_calidad_aire (
     ubicacion_id BIGINT REFERENCES dw.dim_ubicacion(ubicacion_id),
     pm25 NUMERIC(9,3) CHECK (pm25 >= 0),
     pm10 NUMERIC(9,3) CHECK (pm10 >= 0),
-    fuente VARCHAR(20),
+    fuente VARCHAR(20) CHECK (fuente IS NULL OR fuente = 'CAMS'),
     observacion TEXT,
     UNIQUE (fecha_id, ubicacion_id)
 );
-COMMENT ON TABLE dw.dim_calidad_aire IS 'Dimension opcional; queda sin carga hasta validar una fuente aprobada en EC3.';
+COMMENT ON TABLE dw.dim_calidad_aire IS 'Dimension opcional para CAMS/Open-Meteo Air Quality; admite PM2.5 y PM10 y queda nullable si no hay dato valido.';
 
 CREATE TABLE IF NOT EXISTS dw.fact_incendio (
     incendio_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -187,7 +203,7 @@ COMMENT ON COLUMN dw.fact_incendio.brillo_termico IS 'Brightness FIRMS: brillo t
 
 CREATE TABLE IF NOT EXISTS audit.etl_runs (
     run_id UUID PRIMARY KEY,
-    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('INUMET','FIRMS','CHIRPS','FORECAST','METEO','MODIS')),
+    fuente VARCHAR(20) NOT NULL CHECK (fuente IN ('INUMET','FIRMS','CHIRPS','METEO','MODIS','CAMS')),
     etapa VARCHAR(20) NOT NULL CHECK (etapa IN ('extract','transform','load','pipeline','test')),
     estado VARCHAR(15) NOT NULL CHECK (estado IN ('iniciado','ok','parcial','error')),
     ultima_fecha_procesada DATE,

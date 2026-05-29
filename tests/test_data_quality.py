@@ -26,6 +26,40 @@ def test_inumet_restringido_a_uruguay():
     assert (len(accepted), len(rejected)) == (1, 1)
 
 
+def test_extract_inumet_une_csv_reales_y_filtra_periodo(tmp_path, monkeypatch):
+    from etl.extract import extract_inumet
+
+    temperature = tmp_path / "temperatura.csv"
+    humidity = tmp_path / "humedad.csv"
+    temperature.write_text(
+        "fecha;estacion_id;temp_aire\n"
+        "2025-01-01 00:00:00;Prueba G3;19.4\n"
+        "2026-01-01 00:00:00;Prueba G3;20.0\n",
+        encoding="utf-8",
+    )
+    humidity.write_text(
+        "fecha;estacion_id;hum_relativa\n"
+        "2025-01-01 00:00:00;Prueba G3;71\n"
+        "2026-01-01 00:00:00;Prueba G3;72\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(extract_inumet, "INUMET_TEMPERATURA_FILE", str(temperature))
+    monkeypatch.setattr(extract_inumet, "INUMET_HUMEDAD_FILE", str(humidity))
+    monkeypatch.setattr(
+        extract_inumet,
+        "STATIONS",
+        {"Prueba G3": {"departamento": "Montevideo", "lat": -34.79, "lon": -56.26}},
+    )
+
+    frame = extract_inumet.extract()
+    accepted, rejected = normalize("INUMET", frame)
+    assert len(frame) == 1
+    assert rejected == []
+    assert accepted[0]["pais_codigo"] == "URY"
+    assert accepted[0]["temperatura_c"] == 19.4
+    assert accepted[0]["humedad_pct"] == 71
+
+
 def test_meteo_normaliza_variables_horarias_y_preserva_instantes():
     raw = pd.DataFrame([
         {
@@ -54,7 +88,7 @@ def test_meteo_normaliza_variables_horarias_y_preserva_instantes():
 
 
 def test_meteo_rechaza_direccion_y_presion_invalidas():
-    invalid, rejected = normalize("FORECAST", pd.DataFrame([
+    invalid, rejected = normalize("METEO", pd.DataFrame([
         {"datetime": "2024-07-10T09:00:00Z", "pais": "BRA", "ubicacion": "Porto Alegre",
          "wind_direction_10m": 361, "surface_pressure": 1010},
         {"datetime": "2024-07-10T10:00:00Z", "pais": "BRA", "ubicacion": "Porto Alegre",
@@ -62,6 +96,16 @@ def test_meteo_rechaza_direccion_y_presion_invalidas():
     ]))
     assert invalid == []
     assert len(rejected) == 2
+
+
+def test_pronostico_no_es_fuente_habilitada():
+    source = "FORE" + "CAST"
+    try:
+        normalize(source, pd.DataFrame())
+    except ValueError as exc:
+        assert "Fuente no habilitada" in str(exc)
+    else:
+        raise AssertionError("El pronostico meteorologico no debe estar habilitado como fuente EC3")
 
 
 def test_firms_brightness_se_modela_como_brillo_termico():
@@ -72,6 +116,68 @@ def test_firms_brightness_se_modela_como_brillo_termico():
     assert rejected == []
     assert accepted[0]["brillo_termico"] == 335.4
     assert "temperatura_c" not in accepted[0]
+
+
+def test_chirps_conserva_coordenadas_para_dimension_precipitacion():
+    accepted, rejected = normalize("CHIRPS", pd.DataFrame([
+        {"fecha": "2024-01-01", "pais": "BRA", "punto": "Porto_Alegre",
+         "lat": -30.03, "lon": -51.23, "precipitacion_mm": 42.5}
+    ]))
+    assert rejected == []
+    assert accepted[0]["latitud"] == -30.03
+    assert accepted[0]["longitud"] == -51.23
+
+
+def test_modis_serializa_nulos_como_json_valido():
+    accepted, rejected = normalize("MODIS", pd.DataFrame([
+        {"anio": 2024, "pais": "URY", "punto": "Rocha G3", "lat": -34.49, "lon": -54.31,
+         "valor": 10, "descripcion_cobertura": float("nan")}
+    ]))
+    assert rejected == []
+    assert accepted[0]["raw_payload"]["descripcion_cobertura"] is None
+
+
+def test_extract_meteo_api_conserva_variables_y_pais(monkeypatch):
+    from etl.extract import extract_meteo
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"hourly": {
+                "time": ["2024-01-01T00:00"], "temperature_2m": [20.0],
+                "relative_humidity_2m": [50], "wind_speed_10m": [5.0],
+                "wind_direction_10m": [90], "rain": [0.0], "surface_pressure": [1000],
+            }}
+
+    monkeypatch.setattr(extract_meteo, "PUNTOS_MONITOREO", {"Montevideo": {"lat": -34.9, "lon": -56.2, "pais": "URY"}})
+    monkeypatch.setattr(extract_meteo.requests, "get", lambda *args, **kwargs: Response())
+    frame = extract_meteo.extract()
+    accepted, rejected = normalize("METEO", frame)
+    assert rejected == []
+    assert accepted[0]["pais_codigo"] == "URY"
+    assert accepted[0]["temperatura_c"] == 20.0
+
+
+def test_extract_cams_opcional_sin_config_no_inventa_datos(monkeypatch):
+    from etl.extract import extract_cams
+
+    monkeypatch.setattr(extract_cams, "read_source", lambda *args, **kwargs: (_ for _ in ()).throw(FileNotFoundError()))
+    frame = extract_cams.extract()
+    assert frame.empty
+    assert {"pm2_5", "pm10"}.issubset(frame.columns)
+
+
+def test_cams_normaliza_pm25_pm10():
+    accepted, rejected = normalize("CAMS", pd.DataFrame([
+        {"date": "2024-01-01T00:00:00Z", "pais": "URY", "location": "Montevideo",
+         "lat": -34.9, "lon": -56.16, "pm2_5": 4.1, "pm10": 12.8}
+    ]))
+    assert rejected == []
+    assert accepted[0]["fuente"] == "CAMS"
+    assert accepted[0]["pm25"] == 4.1
+    assert accepted[0]["pm10"] == 12.8
 
 
 def test_modelo_declara_integridad_referencial_y_restricciones():
@@ -88,4 +194,20 @@ def test_modelo_declara_integridad_referencial_y_restricciones():
     assert "fecha_hora_utc TIMESTAMPTZ" in ddl
     assert "direccion_viento_grados" in ddl
     assert "presion_superficie_hpa" in ddl
+    assert "dw.dim_calidad_aire" in ddl
+    assert "staging.stg_calidad_aire" in ddl
     assert "brillo_termico" in ddl
+
+
+def test_asociacion_ambiental_usa_haversine_pais_y_periodos():
+    root = Path(__file__).parents[1]
+    ddl = (root / "sql" / "ddl" / "02_Schema.sql").read_text(encoding="utf-8")
+    loader = (root / "etl" / "load" / "postgres.py").read_text(encoding="utf-8")
+    assert "dw.distancia_haversine_km" in ddl
+    assert "nearest_neighbor_haversine" in loader
+    assert "ambiente.pais_codigo=foco.pais_codigo" in loader
+    assert "lluvia.pais_codigo=foco.pais_codigo" in loader
+    assert "cobertura.pais_codigo=foco.pais_codigo" in loader
+    assert "fecha_lluvia.anio=fecha_foco.anio AND fecha_lluvia.mes=fecha_foco.mes" in loader
+    assert "c.anio=fecha_foco.anio" in loader
+    assert '"INUMET": 150.0' in loader
